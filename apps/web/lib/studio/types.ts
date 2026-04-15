@@ -38,6 +38,8 @@ export interface StructuredPayload {
   recommendation?: string;
   change_summary?: string;
   generated_image?: GeneratedImage;
+  /** User-authored chat attachments (not part of model creative schema) */
+  attachments?: Array<{ type: "image"; url: string }>;
   [key: string]: unknown;
 }
 

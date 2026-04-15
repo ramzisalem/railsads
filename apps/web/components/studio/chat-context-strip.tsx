@@ -28,13 +28,13 @@ export function ChatContextStrip({
   }
 
   return (
-    <div className="shrink-0 border-b bg-muted/30 px-3 py-2.5 sm:px-4">
-      <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        Chat context
-      </p>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
-          <span className="text-xs text-muted-foreground">Angle</span>
+    <div className="border-0 bg-transparent px-4 pb-1.5 pt-2 sm:px-6">
+      <h2 className="sr-only">Chat context</h2>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <div className="flex max-w-full items-center gap-2">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Angle
+          </span>
           <FieldSelect
             value={angle}
             onChange={(v) => patch({ angle: v })}
@@ -42,11 +42,15 @@ export function ChatContextStrip({
             unsetLabel="None"
             disabled={isPending}
             aria-label="Creative angle"
+            size="compact"
+            width="hug"
             options={ANGLE_PRESETS.map((a) => ({ value: a, label: a }))}
           />
         </div>
-        <div className="min-w-0 flex-1 space-y-1">
-          <span className="text-xs text-muted-foreground">Awareness</span>
+        <div className="flex max-w-full items-center gap-2">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Awareness
+          </span>
           <FieldSelect
             value={awareness}
             onChange={(v) => patch({ awareness: v })}
@@ -54,6 +58,8 @@ export function ChatContextStrip({
             unsetLabel="Not set"
             disabled={isPending}
             aria-label="Audience awareness level"
+            size="compact"
+            width="hug"
             options={AWARENESS_LEVELS.map((l) => ({
               value: l.value,
               label: l.label,

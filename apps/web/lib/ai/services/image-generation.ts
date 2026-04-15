@@ -82,6 +82,7 @@ export async function generateImage(
           prompt: params.prompt,
           model: MODELS.image,
           thread_id: params.threadId,
+          size: params.size ?? "1024x1024",
         },
         created_by: params.userId,
       })

@@ -14,6 +14,7 @@ import {
   fetchCompetitorInsights,
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
+import { buildResponsesUserInput } from "../responses-user-input";
 
 export interface GenerateCreativeParams {
   brandId: string;
@@ -23,6 +24,8 @@ export interface GenerateCreativeParams {
   templateId?: string | null;
   angle?: string | null;
   awareness?: string | null;
+  /** Public Supabase Storage URLs (chat-attachments) for visual reference */
+  attachmentUrls?: string[];
   userId: string;
 }
 
@@ -58,7 +61,7 @@ export async function generateCreative(
         fetchCompetitorInsights(supabase, params.brandId),
       ]);
 
-    const { system, user } = buildCreativeGenerationPrompt({
+    const { system, user: userBase } = buildCreativeGenerationPrompt({
       brand,
       product,
       icp,
@@ -69,11 +72,17 @@ export async function generateCreative(
         competitorInsights.length > 0 ? competitorInsights : undefined,
     });
 
+    const images = params.attachmentUrls ?? [];
+    const user =
+      images.length > 0
+        ? `${userBase}\n\nThe user attached ${images.length} reference image(s). Use them as visual and messaging cues for hooks, copy, and the image_prompt.`
+        : userBase;
+
     const client = getOpenAIClient();
     const response = await client.responses.parse({
       model,
       instructions: system,
-      input: user,
+      input: buildResponsesUserInput(user, images),
       text: {
         format: zodTextFormat(CreativeOutputSchema, "creative_output"),
       },

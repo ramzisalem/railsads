@@ -9,6 +9,7 @@ import { ChatInput } from "./chat-input";
 import { ChatContextStrip } from "./chat-context-strip";
 import { sendMessage, saveCreativeVersion } from "@/lib/studio/actions";
 import type { MessageItem } from "@/lib/studio/types";
+import type { ImageGenSize } from "@/lib/studio/image-gen-sizes";
 
 interface ThreadContext {
   productId: string;
@@ -58,7 +59,10 @@ export function Conversation({
     (m) => m.role === "assistant" && m.structured_payload
   );
 
-  async function callAI(userMessage: string) {
+  async function callAI(
+    userMessage: string,
+    attachmentUrls: string[] = []
+  ) {
     setIsGenerating(true);
     setAiError(null);
 
@@ -67,6 +71,9 @@ export function Conversation({
         ? "/api/creative/revise"
         : "/api/creative/generate";
 
+      const attach =
+        attachmentUrls.length > 0 ? { attachmentUrls } : {};
+
       const payload = hasAssistantOutput
         ? {
             brandId,
@@ -74,6 +81,7 @@ export function Conversation({
             productId: threadContext.productId,
             icpId: threadContext.icpId,
             userMessage,
+            ...attach,
           }
         : {
             brandId,
@@ -83,6 +91,7 @@ export function Conversation({
             templateId: threadContext.templateId,
             angle: threadContext.angle,
             awareness: threadContext.awareness,
+            ...attach,
           };
 
       const res = await fetch(endpoint, {
@@ -106,12 +115,24 @@ export function Conversation({
     }
   }
 
-  async function handleSend(userMessage: string) {
-    const result = await sendMessage(brandId, threadId, userMessage);
+  async function handleSend(
+    userMessage: string,
+    attachmentUrls: string[] = []
+  ) {
+    const attachments = attachmentUrls.map((url) => ({
+      type: "image" as const,
+      url,
+    }));
+    const result = await sendMessage(
+      brandId,
+      threadId,
+      userMessage,
+      attachments
+    );
     if (result.error) return;
 
     router.refresh();
-    await callAI(userMessage);
+    await callAI(userMessage, attachmentUrls);
   }
 
   function handleQuickAction(prompt: string) {
@@ -128,7 +149,7 @@ export function Conversation({
     handleSend(`Improve the ${section}`);
   }
 
-  async function handleGenerateImage(prompt: string) {
+  async function handleGenerateImage(prompt: string, size: ImageGenSize) {
     setIsGenerating(true);
     setAiError(null);
 
@@ -136,7 +157,7 @@ export function Conversation({
       const res = await fetch("/api/image/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandId, threadId, prompt }),
+        body: JSON.stringify({ brandId, threadId, prompt, size }),
       });
 
       if (!res.ok) {
@@ -156,11 +177,6 @@ export function Conversation({
 
   return (
     <div className="flex flex-col h-full">
-      <ChatContextStrip
-        threadId={threadId}
-        angle={angle}
-        awareness={awareness}
-      />
       <div className="flex-1 overflow-y-auto px-4 sm:px-6">
         <div className="space-y-5 py-4 sm:py-5">
           {messages.map((msg) => (
@@ -194,8 +210,8 @@ export function Conversation({
                 <h3 className="heading-md">Start creating</h3>
                 <p className="mt-2 text-body text-muted-foreground max-w-sm">
                   Type a message below to generate your first ad creative, or
-                  use Product / ICP / Templates on the right and angle above to
-                  refine targeting.
+                  use Product / ICP / Templates on the right and angle /
+                  awareness next to the composer to refine targeting.
                 </p>
               </div>
             </div>
@@ -205,17 +221,25 @@ export function Conversation({
         </div>
       </div>
 
-      {hasAssistantOutput && !isGenerating && (
-        <div className="border-t px-4 py-2 sm:px-6">
-          <QuickActions onAction={handleQuickAction} disabled={isGenerating} />
-        </div>
-      )}
-
-      <ChatInput
-        threadId={threadId}
-        onSend={handleSend}
-        disabled={isGenerating}
-      />
+      <div className="shrink-0 border-t border-border bg-card">
+        {hasAssistantOutput && !isGenerating && (
+          <div className="border-b border-border/60 px-4 py-2 sm:px-6">
+            <QuickActions onAction={handleQuickAction} disabled={isGenerating} />
+          </div>
+        )}
+        <ChatContextStrip
+          threadId={threadId}
+          angle={angle}
+          awareness={awareness}
+        />
+        <ChatInput
+          brandId={brandId}
+          threadId={threadId}
+          onSend={handleSend}
+          disabled={isGenerating}
+          embedded
+        />
+      </div>
     </div>
   );
 }

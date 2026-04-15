@@ -3,12 +3,19 @@
 import { Copy, Check, ThumbsUp, Wand2, ClipboardCopy, ImageIcon, Loader2, Download } from "lucide-react";
 import { useState } from "react";
 import type { MessageItem, StructuredPayload } from "@/lib/studio/types";
+import {
+  DEFAULT_IMAGE_GEN_SIZE,
+  IMAGE_GEN_RATIO_OPTIONS,
+  type ImageGenSize,
+} from "@/lib/studio/image-gen-sizes";
+import { AspectRatioGlyph } from "@/components/studio/aspect-ratio-glyph";
+import { cn } from "@/lib/utils";
 
 interface MessageBlockProps {
   message: MessageItem;
   onUseThis?: (messageId: string, field: string, value: string) => void;
   onImprove?: (section: string) => void;
-  onGenerateImage?: (prompt: string) => Promise<void>;
+  onGenerateImage?: (prompt: string, size: ImageGenSize) => Promise<void>;
 }
 
 export function MessageBlock({ message, onUseThis, onImprove, onGenerateImage }: MessageBlockProps) {
@@ -21,7 +28,27 @@ export function MessageBlock({ message, onUseThis, onImprove, onGenerateImage }:
   }
 
   if (message.role === "user") {
-    return <UserMessage content={message.content ?? ""} />;
+    const payload = message.structured_payload;
+    const attachments =
+      payload &&
+      typeof payload === "object" &&
+      Array.isArray(
+        (payload as { attachments?: unknown }).attachments
+      )
+        ? (
+            payload as {
+              attachments: Array<{ type?: string; url?: string }>;
+            }
+          ).attachments.filter(
+            (a) => a?.type === "image" && typeof a?.url === "string"
+          ) as { type: "image"; url: string }[]
+        : [];
+    return (
+      <UserMessage
+        content={message.content ?? ""}
+        attachments={attachments}
+      />
+    );
   }
 
   return (
@@ -36,10 +63,41 @@ export function MessageBlock({ message, onUseThis, onImprove, onGenerateImage }:
   );
 }
 
-function UserMessage({ content }: { content: string }) {
+function UserMessage({
+  content,
+  attachments = [],
+}: {
+  content: string;
+  attachments?: { type: "image"; url: string }[];
+}) {
   return (
     <div className="rounded-2xl bg-muted px-5 py-4 sm:px-6 sm:py-5">
-      <p className="text-sm whitespace-pre-wrap">{content}</p>
+      {attachments.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {attachments.map((a, i) => (
+            <a
+              key={`${a.url}-${i}`}
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block overflow-hidden rounded-lg border border-border"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={a.url}
+                alt="Attachment"
+                className="max-h-40 max-w-[min(100%,280px)] object-cover"
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+      {content ? (
+        <p className="text-sm whitespace-pre-wrap">{content}</p>
+      ) : attachments.length > 0 ? (
+        <p className="text-xs text-muted-foreground">Image reference</p>
+      ) : null}
     </div>
   );
 }
@@ -57,7 +115,7 @@ function AssistantMessage({
   payload: StructuredPayload | null;
   onUseThis?: (messageId: string, field: string, value: string) => void;
   onImprove?: (section: string) => void;
-  onGenerateImage?: (prompt: string) => Promise<void>;
+  onGenerateImage?: (prompt: string, size: ImageGenSize) => Promise<void>;
 }) {
   if (!payload && content) {
     return (
@@ -365,10 +423,11 @@ function ImagePromptBlock({
   onGenerateImage,
 }: {
   prompt: string;
-  onGenerateImage?: (prompt: string) => Promise<void>;
+  onGenerateImage?: (prompt: string, size: ImageGenSize) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [imageSize, setImageSize] = useState<ImageGenSize>(DEFAULT_IMAGE_GEN_SIZE);
 
   function handleCopy() {
     navigator.clipboard.writeText(prompt);
@@ -380,7 +439,7 @@ function ImagePromptBlock({
     if (!onGenerateImage) return;
     setGenerating(true);
     try {
-      await onGenerateImage(prompt);
+      await onGenerateImage(prompt, imageSize);
     } finally {
       setGenerating(false);
     }
@@ -388,22 +447,50 @@ function ImagePromptBlock({
 
   return (
     <div className="rounded-2xl border bg-card space-y-3 px-5 py-4 sm:px-7 sm:py-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="heading-md min-w-0 text-base">Image Prompt</h3>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2">
           {onGenerateImage && (
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {generating ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <ImageIcon className="h-3 w-3" />
-              )}
-              {generating ? "Generating…" : "Generate image"}
-            </button>
+            <>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Output ratio
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {IMAGE_GEN_RATIO_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.size}
+                      type="button"
+                      disabled={generating}
+                      title={opt.hint}
+                      onClick={() => setImageSize(opt.size)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                        imageSize === opt.size
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <AspectRatioGlyph ratio={opt.ratioGlyph} />
+                      <span>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleGenerate()}
+                disabled={generating}
+                className="flex shrink-0 items-center gap-1.5 self-end rounded-lg bg-primary px-2.5 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 sm:self-center"
+              >
+                {generating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-3 w-3" />
+                )}
+                {generating ? "Generating…" : "Generate image"}
+              </button>
+            </>
           )}
           <button
             onClick={handleCopy}

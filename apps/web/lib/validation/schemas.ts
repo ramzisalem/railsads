@@ -5,6 +5,8 @@ const shortText = z.string().min(1).max(500);
 const longText = z.string().min(1).max(10_000);
 const optionalUuid = uuid.optional().or(z.literal("").transform(() => undefined));
 
+const attachmentUrlsField = z.array(z.string().url()).max(4).optional();
+
 export const creativeGenerateSchema = z.object({
   brandId: uuid,
   threadId: uuid,
@@ -14,15 +16,25 @@ export const creativeGenerateSchema = z.object({
   templateId: z.string().max(100).nullable().optional(),
   angle: z.string().max(200).nullable().optional(),
   awareness: z.string().max(100).nullable().optional(),
+  /** Public Supabase Storage URLs from /api/studio/chat-attachment */
+  attachmentUrls: attachmentUrlsField,
 });
 
-export const creativeReviseSchema = z.object({
-  brandId: uuid,
-  threadId: uuid,
-  productId: uuid,
-  icpId: optionalUuid,
-  userMessage: longText,
-});
+export const creativeReviseSchema = z
+  .object({
+    brandId: uuid,
+    threadId: uuid,
+    productId: uuid,
+    icpId: optionalUuid,
+    userMessage: z.string().max(10_000).optional(),
+    attachmentUrls: attachmentUrlsField,
+  })
+  .refine(
+    (d) =>
+      (d.userMessage?.trim().length ?? 0) > 0 ||
+      (d.attachmentUrls?.length ?? 0) > 0,
+    { message: "Send a message or at least one image" }
+  );
 
 export const imageGenerateSchema = z.object({
   brandId: uuid,

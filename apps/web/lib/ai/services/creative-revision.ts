@@ -14,6 +14,7 @@ import {
   fetchLatestCreativePayload,
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
+import { buildResponsesUserInput } from "../responses-user-input";
 
 const MAJOR_REWRITE_KEYWORDS = [
   "rewrite",
@@ -38,6 +39,8 @@ export interface ReviseCreativeParams {
   productId: string;
   icpId?: string | null;
   userMessage: string;
+  /** Public Supabase Storage URLs (chat-attachments) passed to vision */
+  attachmentUrls?: string[];
   userId: string;
 }
 
@@ -91,11 +94,17 @@ export async function reviseCreative(
       userRequest: params.userMessage,
     });
 
+    const images = params.attachmentUrls ?? [];
+    const userWithRefs =
+      images.length > 0
+        ? `${user}\n\nThe user attached ${images.length} reference image(s) in this message. Use them to align tone, subjects, packaging, and composition in the revised copy and image_prompt.`
+        : user;
+
     const client = getOpenAIClient();
     const response = await client.responses.parse({
       model,
       instructions: system,
-      input: user,
+      input: buildResponsesUserInput(userWithRefs, images),
       text: {
         format: zodTextFormat(
           CreativeRevisionSchema,

@@ -36,11 +36,11 @@ export default async function ThreadPage({
     <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-[calc(100vh-4rem)]">
       <PageHeader
         title="Creative Studio"
+        subheader={
+          <ThreadList threads={threads} activeThreadId={threadId} />
+        }
         actions={
-          <div className="flex items-center gap-3">
-            <ThreadList threads={threads} activeThreadId={threadId} />
-            <NewThreadForm brandId={brand.id} context={context} />
-          </div>
+          <NewThreadForm brandId={brand.id} context={context} />
         }
       />
 

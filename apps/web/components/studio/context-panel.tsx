@@ -22,14 +22,6 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
     (i) => i.product_id === thread.product_id
   );
 
-  const selectedProduct = context.products.find(
-    (p) => p.id === thread.product_id
-  );
-  const selectedIcp = icpsForProduct.find((i) => i.id === thread.icp_id);
-  const selectedTemplate = context.templates.find(
-    (t) => t.id === thread.template_id
-  );
-
   function update(data: Parameters<typeof updateThreadContext>[1]) {
     startTransition(async () => {
       await updateThreadContext(thread.id, data);
@@ -74,9 +66,10 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
             onClick={() => setTab(t.id)}
             className={cn(
               "flex-1 rounded-lg px-2 py-2 text-center text-xs font-medium transition-colors sm:text-sm",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
               tab === t.id
                 ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             )}
           >
             {t.label}
@@ -104,10 +97,11 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
                     })
                   }
                   className={cn(
-                    "rounded-xl border bg-card p-3 text-left transition-all",
+                    "rounded-xl border bg-card p-3 text-left transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                     selected
-                      ? "border-primary ring-2 ring-primary/30"
-                      : "border-border hover:border-primary/40 hover:bg-muted/40"
+                      ? "border-primary bg-primary-soft"
+                      : "border-border hover:border-primary/35 hover:bg-muted/40"
                   )}
                 >
                   <div className="text-sm font-medium">{p.name}</div>
@@ -138,10 +132,11 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
                     disabled={isPending}
                     onClick={() => update({ icp_id: i.id })}
                     className={cn(
-                      "rounded-xl border bg-card p-3 text-left transition-all",
+                      "rounded-xl border bg-card p-3 text-left transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                       selected
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-border hover:border-primary/40 hover:bg-muted/40"
+                        ? "border-primary bg-primary-soft"
+                        : "border-border hover:border-primary/35 hover:bg-muted/40"
                     )}
                   >
                     <div className="text-sm font-medium">{i.title}</div>
@@ -164,10 +159,11 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
               disabled={isPending}
               onClick={() => update({ template_id: null })}
               className={cn(
-                "rounded-xl border bg-card p-3 text-left transition-all",
+                "rounded-xl border bg-card p-3 text-left transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                 thread.template_id == null
-                  ? "border-primary ring-2 ring-primary/30"
-                  : "border-border hover:border-primary/40 hover:bg-muted/40"
+                  ? "border-primary bg-primary-soft"
+                  : "border-border hover:border-primary/35 hover:bg-muted/40"
               )}
             >
               <div className="text-sm font-medium">No template</div>
@@ -184,10 +180,11 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
                   disabled={isPending}
                   onClick={() => update({ template_id: t.id })}
                   className={cn(
-                    "rounded-xl border bg-card p-3 text-left transition-all",
+                    "rounded-xl border bg-card p-3 text-left transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                     selected
-                      ? "border-primary ring-2 ring-primary/30"
-                      : "border-border hover:border-primary/40 hover:bg-muted/40"
+                      ? "border-primary bg-primary-soft"
+                      : "border-border hover:border-primary/35 hover:bg-muted/40"
                   )}
                 >
                   <div className="text-sm font-medium">{t.name}</div>
@@ -206,24 +203,6 @@ export function ContextPanel({ thread, context }: ContextPanelProps) {
             })}
           </div>
         )}
-      </div>
-
-      {/* Compact summary of current selection (any tab) */}
-      <div className="mt-4 space-y-1.5 border-t border-border/60 pt-3 text-xs text-muted-foreground">
-        <p>
-          <span className="font-medium text-foreground">Product:</span>{" "}
-          {selectedProduct?.name ?? "—"}
-        </p>
-        <p>
-          <span className="font-medium text-foreground">ICP:</span>{" "}
-          {selectedIcp?.title ?? "—"}
-        </p>
-        <p>
-          <span className="font-medium text-foreground">Template:</span>{" "}
-          {thread.template_id == null
-            ? "None"
-            : (selectedTemplate?.name ?? "—")}
-        </p>
       </div>
     </div>
   );

@@ -165,16 +165,24 @@ export async function saveCreativeVersion(
 // Messages
 // ---------------------------------------------------------------------------
 
+export type ChatImageAttachment = { type: "image"; url: string };
+
 export async function sendMessage(
   brandId: string,
   threadId: string,
-  content: string
+  content: string,
+  attachments?: ChatImageAttachment[]
 ) {
   const { supabase, user } = await getAuth();
   if (!user) return { error: "Not authenticated" };
 
   const trimmed = content.trim();
-  if (!trimmed) return { error: "Message cannot be empty" };
+  const safeAttachments = (attachments ?? []).filter(
+    (a) => a.type === "image" && typeof a.url === "string" && a.url.startsWith("http")
+  );
+  if (!trimmed && safeAttachments.length === 0) {
+    return { error: "Message cannot be empty" };
+  }
 
   const { data: msg, error } = await supabase
     .from("messages")
@@ -182,7 +190,11 @@ export async function sendMessage(
       brand_id: brandId,
       thread_id: threadId,
       role: "user",
-      content: trimmed,
+      content: trimmed || null,
+      structured_payload:
+        safeAttachments.length > 0
+          ? { attachments: safeAttachments }
+          : null,
       created_by: user.id,
     })
     .select("id")

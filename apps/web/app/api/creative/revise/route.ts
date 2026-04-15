@@ -4,6 +4,7 @@ import { reviseCreative } from "@/lib/ai/services";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
 import { checkCreditGate, trackUsage } from "@/lib/billing/gate";
 import { parseBody, creativeReviseSchema } from "@/lib/validation/schemas";
+import { filterAllowedAttachmentUrls } from "@/lib/studio/chat-attachment-url";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -18,7 +19,9 @@ export async function POST(request: NextRequest) {
   const { data: body, error: validationError } = await parseBody(request, creativeReviseSchema);
   if (validationError) return validationError;
 
-  const { brandId, threadId, productId, icpId, userMessage } = body;
+  const { brandId, threadId, productId, icpId, userMessage, attachmentUrls } =
+    body;
+  const safeAttachmentUrls = filterAllowedAttachmentUrls(attachmentUrls);
 
   const isMember = await verifyBrandMembership(supabase, user.id, brandId);
   if (!isMember) {
@@ -34,7 +37,8 @@ export async function POST(request: NextRequest) {
       threadId,
       productId,
       icpId,
-      userMessage,
+      userMessage: userMessage?.trim() ?? "",
+      attachmentUrls: safeAttachmentUrls,
       userId: user.id,
     });
 

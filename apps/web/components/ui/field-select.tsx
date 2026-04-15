@@ -21,6 +21,10 @@ export interface FieldSelectProps {
   "aria-label"?: string;
   className?: string;
   triggerClassName?: string;
+  /** Tighter trigger for toolbars / chat chrome */
+  size?: "default" | "compact";
+  /** `hug` sizes the trigger to the label; `full` stretches in flex layouts (default). */
+  width?: "full" | "hug";
 }
 
 export function FieldSelect({
@@ -34,6 +38,8 @@ export function FieldSelect({
   "aria-label": ariaLabel,
   className,
   triggerClassName,
+  size = "default",
+  width = "full",
 }: FieldSelectProps) {
   const allOptions = React.useMemo<FieldSelectOption[]>(() => {
     if (allowUnset) {
@@ -66,18 +72,37 @@ export function FieldSelect({
         id={id}
         aria-label={ariaLabel}
         className={cn(
-          "input-field flex w-full min-h-0 items-center justify-between gap-2 py-1.5 text-left text-sm",
-          "data-popup-open:ring-2 data-popup-open:ring-primary",
+          "group min-h-0 items-center justify-between text-left font-medium text-foreground transition-colors",
+          width === "hug"
+            ? "inline-flex w-max max-w-[min(100%,18rem)]"
+            : "flex w-full",
+          "rounded-xl border border-border bg-card hover:bg-muted",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "disabled:pointer-events-none disabled:opacity-50",
+          size === "compact"
+            ? "gap-1.5 px-2.5 py-1.5 text-xs"
+            : "gap-2 px-3 py-2 text-sm",
           triggerClassName,
           className
         )}
       >
-        <Select.Value className="min-w-0 flex-1 truncate">
+        <Select.Value
+          className={cn(
+            "min-w-0 truncate",
+            width === "hug" ? "max-w-[14rem] shrink" : "flex-1",
+            size === "compact" && "text-xs"
+          )}
+        >
           {(v: string) =>
             allOptions.find((o) => o.value === v)?.label ?? unsetLabel
           }
         </Select.Value>
-        <Select.Icon className="shrink-0 text-muted-foreground [&_svg]:size-4">
+        <Select.Icon
+          className={cn(
+            "shrink-0 text-muted-foreground transition-transform duration-200 group-data-[popup-open]:rotate-180",
+            size === "compact" ? "[&_svg]:size-3.5" : "[&_svg]:size-4"
+          )}
+        >
           <ChevronDown />
         </Select.Icon>
       </Select.Trigger>
@@ -91,22 +116,23 @@ export function FieldSelect({
         >
           <Select.Popup
             className={cn(
-              "max-h-[min(280px,var(--available-height))] min-w-[var(--anchor-width)] overflow-y-auto rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg outline-none"
+              "max-h-[min(280px,var(--available-height))] min-w-[var(--anchor-width)] overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-panel outline-none"
             )}
           >
-            <Select.List className="outline-none">
+            <Select.List className="max-h-[inherit] overflow-y-auto overscroll-contain p-1 outline-none">
               {allOptions.map((opt) => (
                 <Select.Item
                   key={opt.value}
                   value={opt.value}
                   label={opt.label}
                   className={cn(
-                    "flex cursor-default items-center gap-2 px-3 py-2 text-sm outline-none select-none",
+                    "flex w-full cursor-default select-none items-center justify-between gap-2 rounded-lg px-3 py-2 outline-none transition-colors",
+                    size === "compact" ? "text-xs py-1.5" : "text-sm",
                     "data-highlighted:bg-muted data-highlighted:text-foreground",
-                    "data-[selected]:bg-primary/10"
+                    "data-[selected]:bg-muted"
                   )}
                 >
-                  <Select.ItemText className="min-w-0 flex-1 truncate">
+                  <Select.ItemText className="min-w-0 flex-1 truncate text-left">
                     {opt.label}
                   </Select.ItemText>
                   <Select.ItemIndicator className="shrink-0 text-primary">

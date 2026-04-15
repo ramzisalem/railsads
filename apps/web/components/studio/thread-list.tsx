@@ -34,13 +34,14 @@ export function ThreadList({ threads, activeThreadId }: ThreadListProps) {
   const activeThread = threads.find((t) => t.id === activeThreadId);
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="btn-secondary flex items-center gap-2"
+        className="btn-secondary flex w-full max-w-full items-center gap-2 text-left"
       >
-        <MessageSquare className="h-4 w-4" />
-        <span className="max-w-[160px] truncate">
+        <MessageSquare className="h-4 w-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">
           {activeThread
             ? activeThread.title ?? activeThread.product_name
             : "Threads"}

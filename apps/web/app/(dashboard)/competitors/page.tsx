@@ -17,7 +17,11 @@ export default async function CompetitorsPage() {
       <PageHeader
         title="Competitors"
         description="Market intelligence — track and learn from competitors."
-        actions={<AddCompetitorForm brandId={brand.id} />}
+        actions={
+          competitors.length > 0 ? (
+            <AddCompetitorForm brandId={brand.id} />
+          ) : undefined
+        }
       />
 
       {competitors.length === 0 ? (

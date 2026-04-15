@@ -51,13 +51,11 @@ export default async function StudioPage({
     <div className="space-y-8">
       <PageHeader
         title="Creative Studio"
+        subheader={<ThreadList threads={threads} />}
         actions={
-          <div className="flex items-center gap-3">
-            <ThreadList threads={threads} />
-            {hasProducts && (
-              <NewThreadForm brandId={brand.id} context={context} />
-            )}
-          </div>
+          hasProducts ? (
+            <NewThreadForm brandId={brand.id} context={context} />
+          ) : undefined
         }
       />
 
