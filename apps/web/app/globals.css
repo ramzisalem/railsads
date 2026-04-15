@@ -1,0 +1,340 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme tokens — maps CSS variables to Tailwind utility classes.
+ * All colors are defined as raw values in :root / .dark below,
+ * then referenced here so Tailwind can generate bg-*, text-*, border-* etc.
+ */
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-heading: var(--font-playfair), ui-serif, Georgia, serif;
+
+  /* Core colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Primary (orange — action) */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+
+  /* Secondary (sage — calm / structure) */
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-dark: var(--secondary-dark);
+  --color-secondary-soft: var(--secondary-soft);
+
+  /* Muted */
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* Accent */
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Semantic */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Chart (keep shadcn defaults) */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Raw studio palette for direct access */
+  --color-studio-beige: #F5F3EF;
+  --color-studio-surface: #FFFFFF;
+  --color-studio-text: #1C1C1C;
+  --color-studio-text-secondary: #6B6B6B;
+  --color-studio-text-muted: #9A9A9A;
+  --color-studio-orange: #FF6A00;
+  --color-studio-orange-hover: #FF8126;
+  --color-studio-sage: #9FB5AE;
+  --color-studio-sage-dark: #7F9992;
+
+  --color-studio-dark-bg: #0F0F10;
+  --color-studio-dark-surface: #18181B;
+  --color-studio-dark-elevated: #1F1F23;
+  --color-studio-dark-border: #2A2A2E;
+  --color-studio-dark-text: #FFFFFF;
+  --color-studio-dark-text-secondary: #A1A1AA;
+  --color-studio-dark-text-muted: #71717A;
+  --color-studio-dark-sage: #8FA8A1;
+  --color-studio-dark-sage-dark: #6E8780;
+
+  /* Border radius */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+
+  /* Shadows */
+  --shadow-soft: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px rgba(16, 24, 40, 0.08);
+
+  /* Spacing extras */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+
+  /* Max widths */
+  --container-studio: 1600px;
+}
+
+/* ========================================================================
+   Light theme — Claude-like warm beige + orange primary + sage secondary
+   ======================================================================== */
+:root {
+  --background: #F5F3EF;
+  --foreground: #1C1C1C;
+
+  --card: #FFFFFF;
+  --card-foreground: #1C1C1C;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #1C1C1C;
+
+  --border: #E7E5E4;
+  --input: #E7E5E4;
+  --ring: #FF6A00;
+
+  /* Primary = orange = action */
+  --primary: #FF6A00;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #FF8126;
+  --primary-soft: rgba(255, 106, 0, 0.10);
+
+  /* Secondary = sage = calm intelligence */
+  --secondary: #9FB5AE;
+  --secondary-foreground: #3D5550;
+  --secondary-dark: #7F9992;
+  --secondary-soft: rgba(159, 181, 174, 0.15);
+
+  --muted: #EDEBE7;
+  --muted-foreground: #6B6B6B;
+
+  --accent: #9FB5AE;
+  --accent-foreground: #3D5550;
+
+  --success: #22C55E;
+  --success-foreground: #FFFFFF;
+
+  --warning: #F59E0B;
+  --warning-foreground: #1C1C1C;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --radius: 0.75rem;
+
+  --chart-1: #FF6A00;
+  --chart-2: #9FB5AE;
+  --chart-3: #7F9992;
+  --chart-4: #6B6B6B;
+  --chart-5: #1C1C1C;
+
+  --sidebar: #F5F3EF;
+  --sidebar-foreground: #1C1C1C;
+  --sidebar-primary: #FF6A00;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(159, 181, 174, 0.15);
+  --sidebar-accent-foreground: #1C1C1C;
+  --sidebar-border: #E7E5E4;
+  --sidebar-ring: #FF6A00;
+}
+
+/* ========================================================================
+   Dark theme — Neutral dark + orange primary + desaturated sage
+   ======================================================================== */
+.dark {
+  --background: #0F0F10;
+  --foreground: #FFFFFF;
+
+  --card: #18181B;
+  --card-foreground: #FFFFFF;
+
+  --popover: #18181B;
+  --popover-foreground: #FFFFFF;
+
+  --border: #2A2A2E;
+  --input: #2A2A2E;
+  --ring: #FF6A00;
+
+  --primary: #FF6A00;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #FF8126;
+  --primary-soft: rgba(255, 106, 0, 0.15);
+
+  --secondary: #8FA8A1;
+  --secondary-foreground: #D4E0DD;
+  --secondary-dark: #6E8780;
+  --secondary-soft: rgba(143, 168, 161, 0.12);
+
+  --muted: #1F1F23;
+  --muted-foreground: #A1A1AA;
+
+  --accent: #8FA8A1;
+  --accent-foreground: #D4E0DD;
+
+  --success: #22C55E;
+  --success-foreground: #FFFFFF;
+
+  --warning: #F59E0B;
+  --warning-foreground: #1C1C1C;
+
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  --chart-1: #FF6A00;
+  --chart-2: #8FA8A1;
+  --chart-3: #6E8780;
+  --chart-4: #A1A1AA;
+  --chart-5: #FFFFFF;
+
+  --sidebar: #0F0F10;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FF6A00;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(143, 168, 161, 0.12);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #2A2A2E;
+  --sidebar-ring: #FF6A00;
+}
+
+/* ========================================================================
+   Base layer
+   ======================================================================== */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    @apply font-serif tracking-tight;
+  }
+}
+
+/* ========================================================================
+   Component utility classes
+   ======================================================================== */
+@layer components {
+  /* Layout shells */
+  .app-shell {
+    @apply min-h-screen bg-background text-foreground;
+  }
+
+  /* Panels / cards */
+  .panel {
+    @apply rounded-2xl border bg-card text-card-foreground shadow-soft;
+  }
+
+  .panel-muted {
+    @apply rounded-2xl border bg-secondary-soft text-foreground;
+  }
+
+  /* Typography scale — from fonts.md (precise values) */
+  .heading-xl {
+    @apply font-serif text-[36px] md:text-[40px] leading-[1.1] tracking-[-0.02em];
+  }
+
+  .heading-lg {
+    @apply font-serif text-[28px] md:text-[32px] leading-[1.15] tracking-[-0.015em];
+  }
+
+  .heading-md {
+    @apply font-serif text-[22px] md:text-[24px] leading-[1.2] tracking-[-0.01em];
+  }
+
+  .text-body {
+    @apply font-sans text-[15px] leading-[1.6];
+  }
+
+  .text-body-lg {
+    @apply font-sans text-[16px] leading-[1.6];
+  }
+
+  .text-ui {
+    @apply font-sans text-[14px] leading-[1.4];
+  }
+
+  .text-small {
+    @apply font-sans text-[13px] leading-[1.4];
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary-soft;
+  }
+
+  .btn-ghost {
+    @apply px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors;
+  }
+
+  /* Inputs */
+  .input-field {
+    @apply w-full rounded-xl border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-primary;
+  }
+
+  .textarea-field {
+    @apply w-full resize-none rounded-2xl border bg-background px-4 py-3 text-sm outline-none transition focus:ring-2 focus:ring-primary;
+  }
+
+  /* Tags / badges */
+  .tag {
+    @apply rounded-full bg-secondary-soft px-3 py-1 text-xs text-secondary-dark;
+  }
+
+  .tag-primary {
+    @apply rounded-full bg-primary-soft px-3 py-1 text-xs text-primary;
+  }
+
+  /* Prose max width for readable content */
+  .prose-readable {
+    max-width: 65ch;
+  }
+}
