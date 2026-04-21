@@ -59,13 +59,39 @@ export async function updateSession(request: NextRequest) {
 
   if (user && !isPublicPath && !pathname.startsWith("/onboarding") && !pathname.startsWith("/api")) {
     if (!activeBrandCookie) {
-      console.warn("[railsads:proxy] redirect → /onboarding (no railsads-active-brand cookie)", {
-        method: request.method,
-        pathname: pathname + (request.nextUrl.search || ""),
-      });
-      const url = request.nextUrl.clone();
-      url.pathname = "/onboarding";
-      return NextResponse.redirect(url);
+      // Cookie missing — check if the user actually has a brand before sending to onboarding.
+      const { data: membership } = await supabase
+        .from("brand_members")
+        .select("brand_id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (membership) {
+        // Auto-restore the cookie so the user doesn't hit onboarding again.
+        console.info("[railsads:proxy] restoring active-brand cookie from membership", {
+          brandId: membership.brand_id,
+          pathname,
+        });
+        const isProduction = process.env.NODE_ENV === "production";
+        supabaseResponse.cookies.set(ACTIVE_BRAND_COOKIE, membership.brand_id, {
+          path: "/",
+          maxAge: 60 * 60 * 24 * 365,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isProduction,
+        });
+      } else {
+        console.warn("[railsads:proxy] redirect → /onboarding (no brand membership)", {
+          method: request.method,
+          pathname: pathname + (request.nextUrl.search || ""),
+        });
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
     }
   }
 
