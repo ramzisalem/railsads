@@ -1,5 +1,5 @@
 /** Visual preset id for ratio icons (see `AspectRatioGlyph`). */
-export type ImageGenRatioGlyphId = "4:3" | "16:9" | "9:16";
+export type ImageGenRatioGlyphId = "1:1" | "16:9" | "9:16";
 
 /** OpenAI image API sizes supported in this app (gpt-image-1). */
 export type ImageGenSize = "1024x1024" | "1536x1024" | "1024x1536";
@@ -12,8 +12,8 @@ export const IMAGE_GEN_RATIO_OPTIONS: ReadonlyArray<{
 }> = [
   {
     size: "1024x1024",
-    label: "4:3",
-    ratioGlyph: "4:3",
+    label: "1:1",
+    ratioGlyph: "1:1",
     hint: "Square output 1024×1024 — balanced framing for feeds and product shots.",
   },
   {

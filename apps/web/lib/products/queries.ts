@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/db/supabase-server";
 
 export interface ProductListItem {
@@ -14,6 +15,8 @@ export interface ProductListItem {
   source: string;
   created_at: string;
   icp_count: number;
+  /** Public URL of the primary product image (hero), if one was imported */
+  image_url: string | null;
 }
 
 export interface ProductDetail {
@@ -31,6 +34,41 @@ export interface ProductDetail {
   source: string;
   created_at: string;
   updated_at: string;
+  /** Public URL of the primary product image (hero), if one was imported */
+  image_url: string | null;
+}
+
+/**
+ * Resolves the primary (`role = "primary"`) product image asset to a public
+ * Supabase Storage URL. Returns a Map keyed by `productId` so callers can
+ * batch-fetch a list of products in a single round-trip.
+ */
+export async function fetchPrimaryProductImageUrls(
+  supabase: SupabaseClient,
+  productIds: string[]
+): Promise<Map<string, string>> {
+  if (productIds.length === 0) return new Map();
+
+  const { data: links } = await supabase
+    .from("product_asset_links")
+    .select("product_id, sort_order, assets ( bucket, storage_path )")
+    .in("product_id", productIds)
+    .eq("role", "primary")
+    .order("sort_order", { ascending: true });
+
+  const map = new Map<string, string>();
+  for (const row of links ?? []) {
+    if (map.has(row.product_id)) continue; // first (lowest sort_order) wins
+    const asset = row.assets as
+      | { bucket: string; storage_path: string }
+      | { bucket: string; storage_path: string }[]
+      | null;
+    const a = Array.isArray(asset) ? asset[0] : asset;
+    if (!a?.bucket || !a?.storage_path) continue;
+    const { data } = supabase.storage.from(a.bucket).getPublicUrl(a.storage_path);
+    if (data?.publicUrl) map.set(row.product_id, data.publicUrl);
+  }
+  return map;
 }
 
 export interface IcpItem {
@@ -77,6 +115,8 @@ export async function getProductsList(
     countMap.set(row.product_id, (countMap.get(row.product_id) ?? 0) + 1);
   }
 
+  const imageMap = await fetchPrimaryProductImageUrls(supabase, productIds);
+
   return products.map((p) => {
     const row = p as typeof p & { attributes?: Record<string, unknown> | null };
     const importPrice =
@@ -85,9 +125,13 @@ export async function getProductsList(
         : null;
     const { attributes: _a, ...rest } = row;
     return {
-      ...(rest as Omit<ProductListItem, "icp_count" | "import_price_text">),
+      ...(rest as Omit<
+        ProductListItem,
+        "icp_count" | "import_price_text" | "image_url"
+      >),
       import_price_text: importPrice,
       icp_count: countMap.get(p.id) ?? 0,
+      image_url: imageMap.get(p.id) ?? null,
     };
   });
 }
@@ -179,8 +223,13 @@ export async function getProductDetail(
     }));
   }
 
+  const imageMap = await fetchPrimaryProductImageUrls(supabase, [productId]);
+
   return {
-    product: productResult.data as ProductDetail,
+    product: {
+      ...(productResult.data as Omit<ProductDetail, "image_url">),
+      image_url: imageMap.get(productId) ?? null,
+    },
     icps: (icpsResult.data as IcpItem[]) ?? [],
     competitorInsights,
   };

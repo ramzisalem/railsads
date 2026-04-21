@@ -7,6 +7,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ACTIVE_BRAND_COOKIE } from "@/lib/auth/get-current-brand";
 import { getStripe } from "@/lib/billing/stripe";
+import {
+  paletteForDb,
+  syncLegacyColorsFromPalette,
+} from "@/lib/brand/color-palette";
 
 function slugify(text: string): string {
   return text
@@ -354,6 +358,7 @@ export async function updateBrandVisual(
     primary_color?: string | null;
     secondary_color?: string | null;
     accent_color?: string | null;
+    color_palette?: { segment: string; hex: string }[];
     style_tags?: string[];
     visual_notes?: string | null;
   }
@@ -361,9 +366,22 @@ export async function updateBrandVisual(
   const { supabase, user } = await getAuthenticatedUser();
   if (!user) return { error: "Not authenticated" };
 
+  let payload: Record<string, unknown> = { ...data };
+  if (data.color_palette !== undefined) {
+    const palette = paletteForDb(data.color_palette);
+    const legacy = syncLegacyColorsFromPalette(palette);
+    payload = {
+      ...data,
+      color_palette: palette,
+      primary_color: legacy.primary_color,
+      secondary_color: legacy.secondary_color,
+      accent_color: legacy.accent_color,
+    };
+  }
+
   const { error } = await supabase
     .from("brand_visual_identity")
-    .update(data)
+    .update(payload)
     .eq("brand_id", brandId);
 
   if (error) return { error: error.message };

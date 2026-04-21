@@ -7,7 +7,16 @@ import { cn } from "@/lib/utils";
 
 const UNSET = "__field_select_unset__";
 
-export type FieldSelectOption = { value: string; label: string };
+export type FieldSelectOption = {
+  value: string;
+  label: string;
+  /**
+   * Optional leading icon rendered both in the trigger (next to the value)
+   * and in each list item. Use for compact glyphs like aspect-ratio frames
+   * where a visual cue reads faster than the label alone.
+   */
+  icon?: React.ReactNode;
+};
 
 export interface FieldSelectProps {
   id?: string;
@@ -25,6 +34,13 @@ export interface FieldSelectProps {
   size?: "default" | "compact";
   /** `hug` sizes the trigger to the label; `full` stretches in flex layouts (default). */
   width?: "full" | "hug";
+  /**
+   * When true (default), the popup overlays the trigger so the selected item
+   * lines up with it. Set to false to render the popup *below* the trigger
+   * (conventional dropdown behaviour, e.g. when navigating away from the
+   * current value rather than picking a closely-related one).
+   */
+  alignToTrigger?: boolean;
 }
 
 export function FieldSelect({
@@ -40,6 +56,7 @@ export function FieldSelect({
   triggerClassName,
   size = "default",
   width = "full",
+  alignToTrigger = true,
 }: FieldSelectProps) {
   const allOptions = React.useMemo<FieldSelectOption[]>(() => {
     if (allowUnset) {
@@ -88,14 +105,26 @@ export function FieldSelect({
       >
         <Select.Value
           className={cn(
-            "min-w-0 truncate",
+            "flex min-w-0 items-center gap-1.5",
             width === "hug" ? "max-w-[14rem] shrink" : "flex-1",
             size === "compact" && "text-xs"
           )}
         >
-          {(v: string) =>
-            allOptions.find((o) => o.value === v)?.label ?? unsetLabel
-          }
+          {(v: string) => {
+            const opt = allOptions.find((o) => o.value === v);
+            return (
+              <>
+                {opt?.icon ? (
+                  <span className="flex shrink-0 items-center text-muted-foreground">
+                    {opt.icon}
+                  </span>
+                ) : null}
+                <span className="min-w-0 truncate">
+                  {opt?.label ?? unsetLabel}
+                </span>
+              </>
+            );
+          }}
         </Select.Value>
         <Select.Icon
           className={cn(
@@ -112,7 +141,8 @@ export function FieldSelect({
           className="z-[200] outline-none"
           sideOffset={6}
           align="start"
-          alignItemWithTrigger
+          side={alignToTrigger ? undefined : "bottom"}
+          alignItemWithTrigger={alignToTrigger}
         >
           <Select.Popup
             className={cn(
@@ -132,8 +162,13 @@ export function FieldSelect({
                     "data-[selected]:bg-muted"
                   )}
                 >
-                  <Select.ItemText className="min-w-0 flex-1 truncate text-left">
-                    {opt.label}
+                  <Select.ItemText className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-left">
+                    {opt.icon ? (
+                      <span className="flex shrink-0 items-center text-muted-foreground">
+                        {opt.icon}
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 truncate">{opt.label}</span>
                   </Select.ItemText>
                   <Select.ItemIndicator className="shrink-0 text-primary">
                     <Check className="size-3.5" aria-hidden />

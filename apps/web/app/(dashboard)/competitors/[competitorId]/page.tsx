@@ -5,11 +5,9 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getCurrentBrand } from "@/lib/auth/get-current-brand";
 import { getCompetitorDetail } from "@/lib/competitors/queries";
 import { PageHeader } from "@/components/layout/page-header";
-import { CompetitorOverview } from "@/components/competitors/competitor-overview";
-import { AdLibrary } from "@/components/competitors/ad-library";
-import { InsightsDisplay } from "@/components/competitors/insights-display";
-import { ProductMapping } from "@/components/competitors/product-mapping";
 import { AnalyzeButton } from "@/components/competitors/analyze-button";
+import { CompetitorStatStrip } from "@/components/competitors/competitor-stat-strip";
+import { CompetitorDetailTabs } from "@/components/competitors/competitor-detail-tabs";
 
 export default async function CompetitorDetailPage({
   params,
@@ -23,10 +21,12 @@ export default async function CompetitorDetailPage({
 
   if (!data) notFound();
 
-  const { competitor, ads, insights, linkedProducts, allProducts } = data;
+  const { competitor, ads, insights, linkedProducts, allProducts, newAdCounts } =
+    data;
+  const lastAnalyzedAt = insights[0]?.created_at ?? null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <Link
           href="/competitors"
@@ -37,38 +37,35 @@ export default async function CompetitorDetailPage({
         </Link>
         <PageHeader
           title={competitor.name}
-          description={competitor.website_url?.replace(/^https?:\/\//, "") ?? ""}
           actions={
             <AnalyzeButton
               brandId={brand.id}
               competitorId={competitor.id}
               hasAds={ads.length > 0}
+              linkedProducts={linkedProducts}
+              newAdCounts={newAdCounts}
             />
           }
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-6">
-          <CompetitorOverview competitor={competitor} />
-          <ProductMapping
-            brandId={brand.id}
-            competitorId={competitor.id}
-            linkedProducts={linkedProducts}
-            allProducts={allProducts}
-          />
-        </div>
+      <CompetitorStatStrip
+        websiteUrl={competitor.website_url}
+        status={competitor.status}
+        adCount={ads.length}
+        insightCount={insights.length}
+        competesForCount={linkedProducts.length}
+        lastAnalyzedAt={lastAnalyzedAt}
+      />
 
-        <div className="lg:col-span-2 space-y-6">
-          <AdLibrary
-            brandId={brand.id}
-            competitorId={competitor.id}
-            ads={ads}
-            products={allProducts}
-          />
-          <InsightsDisplay insights={insights} />
-        </div>
-      </div>
+      <CompetitorDetailTabs
+        brandId={brand.id}
+        competitor={competitor}
+        ads={ads}
+        insights={insights}
+        linkedProducts={linkedProducts}
+        allProducts={allProducts}
+      />
     </div>
   );
 }

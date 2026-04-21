@@ -12,6 +12,7 @@ import {
   fetchIcpContext,
   fetchTemplateContext,
   fetchCompetitorInsights,
+  fetchCompetitorAdReference,
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import { buildResponsesUserInput } from "../responses-user-input";
@@ -26,6 +27,9 @@ export interface GenerateCreativeParams {
   awareness?: string | null;
   /** Public Supabase Storage URLs (chat-attachments) for visual reference */
   attachmentUrls?: string[];
+  /** When set, the model also gets the competitor ad's image + copy as a
+   *  composition / angle reference. */
+  referenceCompetitorAdId?: string | null;
   userId: string;
 }
 
@@ -50,7 +54,7 @@ export async function generateCreative(
   });
 
   try {
-    const [brand, product, icp, template, competitorInsights] =
+    const [brand, product, icp, template, competitorInsights, referenceAd] =
       await Promise.all([
         fetchBrandContext(supabase, params.brandId),
         fetchProductContext(supabase, params.productId),
@@ -59,6 +63,12 @@ export async function generateCreative(
           ? fetchTemplateContext(supabase, params.templateId)
           : undefined,
         fetchCompetitorInsights(supabase, params.brandId),
+        params.referenceCompetitorAdId
+          ? fetchCompetitorAdReference(
+              supabase,
+              params.referenceCompetitorAdId
+            )
+          : Promise.resolve(null),
       ]);
 
     const { system, user: userBase } = buildCreativeGenerationPrompt({
@@ -70,13 +80,29 @@ export async function generateCreative(
       awareness: params.awareness ?? undefined,
       competitorInsights:
         competitorInsights.length > 0 ? competitorInsights : undefined,
+      referenceAd: referenceAd ?? undefined,
     });
 
-    const images = params.attachmentUrls ?? [];
+    // Layer in the reference ad's screenshot alongside any user-attached
+    // images. The reference image goes FIRST so the model treats it as the
+    // primary inspiration anchor.
+    const images = [
+      ...(referenceAd?.image_url ? [referenceAd.image_url] : []),
+      ...(params.attachmentUrls ?? []),
+    ];
+    const noteParts: string[] = [];
+    if (referenceAd?.image_url) {
+      noteParts.push(
+        `The first attached image is a competitor ad we want to draw composition / energy from. Match its layout vibe but render OUR product, palette, and typography.`
+      );
+    }
+    if ((params.attachmentUrls ?? []).length > 0) {
+      noteParts.push(
+        `The user attached ${params.attachmentUrls!.length} reference image(s). Use them as visual and messaging cues for hooks, copy, and the image_prompt.`
+      );
+    }
     const user =
-      images.length > 0
-        ? `${userBase}\n\nThe user attached ${images.length} reference image(s). Use them as visual and messaging cues for hooks, copy, and the image_prompt.`
-        : userBase;
+      noteParts.length > 0 ? `${userBase}\n\n${noteParts.join("\n\n")}` : userBase;
 
     const client = getOpenAIClient();
     const response = await client.responses.parse({

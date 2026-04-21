@@ -17,13 +17,13 @@ export function AspectRatioGlyph({
       )}
       aria-hidden
     >
-      {ratio === "4:3" && (
-        <svg viewBox="0 0 20 15" className="h-3.5 w-[18px]" fill="none">
+      {ratio === "1:1" && (
+        <svg viewBox="0 0 18 18" className="h-3.5 w-3.5" fill="none">
           <rect
             x="1"
             y="1"
-            width="18"
-            height="13"
+            width="16"
+            height="16"
             rx="1.5"
             stroke="currentColor"
             strokeWidth="1.5"

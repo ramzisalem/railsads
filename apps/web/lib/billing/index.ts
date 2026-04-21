@@ -10,4 +10,4 @@ export {
 export type { CreditBalance } from "./credits";
 export { logUsageAndDeduct } from "./usage";
 export type { LogUsageParams } from "./usage";
-export { checkCreditGate, trackUsage } from "./gate";
+export { checkCreditGate, trackUsage, safeTrackUsage } from "./gate";

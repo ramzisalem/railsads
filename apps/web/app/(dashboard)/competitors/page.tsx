@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getCurrentBrand } from "@/lib/auth/get-current-brand";
 import { getCompetitorsList } from "@/lib/competitors/queries";
 import { PageHeader } from "@/components/layout/page-header";
-import { CompetitorCard } from "@/components/competitors/competitor-card";
+import { CompetitorList } from "@/components/competitors/competitor-list";
 import { AddCompetitorForm } from "@/components/competitors/add-competitor-form";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eye } from "lucide-react";
@@ -32,11 +32,7 @@ export default async function CompetitorsPage() {
           action={<AddCompetitorForm brandId={brand.id} />}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {competitors.map((c) => (
-            <CompetitorCard key={c.id} competitor={c} />
-          ))}
-        </div>
+        <CompetitorList competitors={competitors} />
       )}
     </div>
   );

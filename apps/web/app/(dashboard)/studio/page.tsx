@@ -4,9 +4,8 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getCurrentBrand } from "@/lib/auth/get-current-brand";
 import { getThreadsList, getStudioContext } from "@/lib/studio/queries";
 import { createStudioThread } from "@/lib/studio/create-thread";
-import { PageHeader } from "@/components/layout/page-header";
-import { ThreadList } from "@/components/studio/thread-list";
 import { NewThreadForm } from "@/components/studio/new-thread-form";
+import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Sparkles, Package } from "lucide-react";
 
@@ -25,17 +24,23 @@ export default async function StudioPage({
   if (productParam) {
     const icpParam = (params.icpId as string) ?? null;
     const templateParam = (params.template as string) ?? null;
+    const competitorAdParam =
+      (params.competitorAdId as string) ??
+      (params.referenceAdId as string) ??
+      null;
 
     const result = await createStudioThread(
       brand.id,
       productParam,
       icpParam,
-      templateParam
+      templateParam,
+      null,
+      null,
+      competitorAdParam
     );
     if ("threadId" in result) {
       redirect(`/studio/${result.threadId}`);
     }
-    // Thread creation failed — redirect to clean studio URL to prevent retry loops
     redirect("/studio");
   }
 
@@ -47,25 +52,9 @@ export default async function StudioPage({
   const context = await getStudioContext(brand.id);
   const hasProducts = context.products.length > 0;
 
-  return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Creative Studio"
-        subheader={<ThreadList threads={threads} />}
-        actions={
-          hasProducts ? (
-            <NewThreadForm brandId={brand.id} context={context} />
-          ) : undefined
-        }
-      />
-
-      {hasProducts ? (
-        <EmptyState
-          icon={Sparkles}
-          title="Ready to create"
-          description="Click &ldquo;New creative&rdquo; to start a new ad, or open an existing thread from the dropdown."
-        />
-      ) : (
+  if (!hasProducts) {
+    return (
+      <div className="space-y-8">
         <EmptyState
           icon={Package}
           title="Add a product first"
@@ -77,7 +66,31 @@ export default async function StudioPage({
             </Link>
           }
         />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        title="Creative Studio"
+        description="Brief the AI to generate hooks, headlines, and ad visuals you can ship."
+        actions={<NewThreadForm brandId={brand.id} context={context} />}
+      />
+
+      <EmptyState
+        icon={Sparkles}
+        title="Start your first creative"
+        description="Pick a product, target an audience, and brief the AI to get hooks, headlines, and visuals."
+        action={
+          <Link
+            href="/products"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Or open a product to brief from there
+          </Link>
+        }
+      />
     </div>
   );
 }

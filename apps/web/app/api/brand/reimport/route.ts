@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { createAdminClient } from "@/lib/db/supabase-admin";
 import { importBrand } from "@/lib/ai/services";
-import { checkCreditGate, trackUsage } from "@/lib/billing/gate";
+import { checkCreditGate, safeTrackUsage } from "@/lib/billing/gate";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
 import { parseBody, brandReimportSchema } from "@/lib/validation/schemas";
+import {
+  paletteForDb,
+  paletteFromLegacyColors,
+  syncLegacyColorsFromPalette,
+} from "@/lib/brand/color-palette";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -71,22 +76,32 @@ export async function POST(request: NextRequest) {
       })
       .eq("brand_id", brandId);
 
-    await admin
-      .from("brand_visual_identity")
-      .update({
+    const reimportPalette = paletteForDb(
+      paletteFromLegacyColors({
         primary_color: output.primary_color,
         secondary_color: output.secondary_color,
         accent_color: output.accent_color,
+      })
+    );
+    const reimportLegacy = syncLegacyColorsFromPalette(reimportPalette);
+
+    await admin
+      .from("brand_visual_identity")
+      .update({
+        color_palette: reimportPalette,
+        primary_color: reimportLegacy.primary_color,
+        secondary_color: reimportLegacy.secondary_color,
+        accent_color: reimportLegacy.accent_color,
         style_tags: output.style_tags,
         source: "website_import",
       })
       .eq("brand_id", brandId);
 
-    trackUsage({
+    void safeTrackUsage({
       brandId,
       eventType: "website_import",
       userId: user.id,
-    }).catch(() => {});
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

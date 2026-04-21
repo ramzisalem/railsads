@@ -39,6 +39,11 @@ export async function checkCreditGate(
 
 /**
  * Track usage and deduct credits after a successful AI operation.
+ *
+ * NOTE: This will throw if the credit ledger write fails. Most call sites
+ * actually want billing to be best-effort (failing to deduct should NEVER
+ * prevent the user from seeing the AI response they already paid OpenAI
+ * for). Prefer `safeTrackUsage` from API routes.
  */
 export async function trackUsage(params: {
   brandId: string;
@@ -55,4 +60,34 @@ export async function trackUsage(params: {
     threadId: params.threadId,
     aiRunId: params.aiRunId,
   });
+}
+
+/**
+ * Fire-and-log version of `trackUsage`. Used by API routes after a
+ * successful AI call: we do NOT want a failing credit ledger write to mask
+ * the actual response from the user (we'd be making them retry an operation
+ * we already charged OpenAI for). All errors are swallowed and logged with
+ * enough context to reconcile out-of-band.
+ *
+ * Returns a Promise that always resolves so callers can `await` without a
+ * try/catch. Use this from every API route by default.
+ */
+export async function safeTrackUsage(params: {
+  brandId: string;
+  eventType: string;
+  userId: string;
+  threadId?: string;
+  aiRunId?: string;
+}): Promise<void> {
+  try {
+    await trackUsage(params);
+  } catch (err) {
+    console.error("[safeTrackUsage] credit deduction failed", {
+      brandId: params.brandId,
+      eventType: params.eventType,
+      aiRunId: params.aiRunId,
+      threadId: params.threadId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

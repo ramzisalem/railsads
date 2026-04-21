@@ -3,6 +3,11 @@ import { createClient } from "@/lib/db/supabase-server";
 import { createAdminClient } from "@/lib/db/supabase-admin";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
 import { parseBody, updateBrandSchema } from "@/lib/validation/schemas";
+import {
+  paletteForDb,
+  paletteFromLegacyColors,
+  syncLegacyColorsFromPalette,
+} from "@/lib/brand/color-palette";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -43,12 +48,22 @@ export async function POST(request: NextRequest) {
     })
     .eq("brand_id", brandId);
 
+  const palette = brand.color_palette?.length
+    ? paletteForDb(brand.color_palette)
+    : paletteFromLegacyColors({
+        primary_color: brand.primary_color ?? null,
+        secondary_color: brand.secondary_color ?? null,
+        accent_color: brand.accent_color ?? null,
+      });
+  const legacy = syncLegacyColorsFromPalette(palette);
+
   await admin
     .from("brand_visual_identity")
     .update({
-      primary_color: brand.primary_color,
-      secondary_color: brand.secondary_color,
-      accent_color: brand.accent_color,
+      color_palette: palette,
+      primary_color: legacy.primary_color,
+      secondary_color: legacy.secondary_color,
+      accent_color: legacy.accent_color,
       style_tags: brand.style_tags,
     })
     .eq("brand_id", brandId);

@@ -7,12 +7,9 @@ import {
   getThreadsList,
   getStudioContext,
 } from "@/lib/studio/queries";
-import { PageHeader } from "@/components/layout/page-header";
-import { ThreadList } from "@/components/studio/thread-list";
-import { NewThreadForm } from "@/components/studio/new-thread-form";
 import { Conversation } from "@/components/studio/conversation";
 import { ContextPanel } from "@/components/studio/context-panel";
-import { ThreadHeader } from "@/components/studio/thread-header";
+import { StudioHeader } from "@/components/studio/studio-header";
 
 export default async function ThreadPage({
   params,
@@ -32,22 +29,30 @@ export default async function ThreadPage({
 
   if (!thread) notFound();
 
+  // Make the Studio thread look and feel like ChatGPT / Claude: the chat fills
+  // the entire viewport (only the messages area scrolls; composer pinned at
+  // the bottom). To do that we must escape the dashboard <AppShell> wrapper,
+  // which adds `mx-auto max-w-[1600px] px-{4|6|8} py-{4|6|8}` around children.
+  // We cancel that wrapping with negative margins (and re-add a small inner
+  // padding) so the page truly reaches every edge of the viewport.
+  const escapeShell =
+    "-mx-4 -my-4 sm:-mx-6 sm:-my-6 md:-mx-8 md:-my-8";
+  const fullHeight =
+    "h-[calc(100dvh-3.5rem)] md:h-screen";
+
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] md:h-[calc(100vh-4rem)]">
-      <PageHeader
-        title="Creative Studio"
-        subheader={
-          <ThreadList threads={threads} activeThreadId={threadId} />
-        }
-        actions={
-          <NewThreadForm brandId={brand.id} context={context} />
-        }
+    <div
+      className={`${escapeShell} ${fullHeight} flex flex-col gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 md:px-6 md:py-5`}
+    >
+      <StudioHeader
+        brandId={brand.id}
+        thread={thread}
+        threads={threads}
+        context={context}
       />
 
-      <ThreadHeader thread={thread} />
-
-      <div className="mt-4 flex-1 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px] min-h-0">
-        <div className="min-h-0 flex flex-col rounded-2xl border bg-card overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
           <Conversation
             brandId={brand.id}
             threadId={threadId}
@@ -58,13 +63,15 @@ export default async function ThreadPage({
               templateId: thread.template_id,
               angle: thread.angle,
               awareness: thread.awareness,
+              referenceCompetitorAdId: thread.reference_competitor_ad_id,
             }}
             angle={thread.angle}
             awareness={thread.awareness}
+            studioContext={context}
           />
         </div>
 
-        <div className="lg:sticky lg:top-0 self-start">
+        <div className="flex min-h-0 flex-col">
           <ContextPanel thread={thread} context={context} />
         </div>
       </div>

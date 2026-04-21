@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getNewAdCountsByScope } from "@/lib/competitors/analyzed-ads";
 
 export interface CompetitorListItem {
   id: string;
@@ -21,6 +22,15 @@ export interface CompetitorDetail {
   updated_at: string;
 }
 
+export interface CompetitorAdImage {
+  asset_id: string;
+  bucket: string;
+  storage_path: string;
+  public_url: string;
+  width: number | null;
+  height: number | null;
+}
+
 export interface CompetitorAd {
   id: string;
   competitor_id: string;
@@ -33,6 +43,21 @@ export interface CompetitorAd {
   ad_text: string | null;
   notes: string | null;
   created_at: string;
+  images: CompetitorAdImage[];
+}
+
+export type CompetitorPatternCategory =
+  | "hook"
+  | "angle"
+  | "emotional"
+  | "visual"
+  | "offer"
+  | "cta";
+
+export interface CompetitorInsightEvidence {
+  category: CompetitorPatternCategory;
+  pattern: string;
+  evidence_ad_ids: string[];
 }
 
 export interface CompetitorInsight {
@@ -46,6 +71,7 @@ export interface CompetitorInsight {
   visual_patterns: string[];
   offer_patterns: string[];
   cta_patterns: string[];
+  evidence: CompetitorInsightEvidence[];
   confidence_score: number | null;
   created_at: string;
 }
@@ -55,12 +81,30 @@ export interface ProductOption {
   name: string;
 }
 
+export interface LinkedProductOption extends ProductOption {
+  /** Free-text note on this competitor↔product overlap (why they compete,
+   *  positioning differences, etc.). Edited from the ProductMapping panel. */
+  link_notes: string | null;
+}
+
+/** Per-scope counts of how many ads are still un-analyzed. Drives the
+ *  "Analyze N new ads" button copy and disabling. */
+export interface NewAdsByScope {
+  /** Whole-library scope: total ads + how many haven't been in a
+   *  whole-library run yet. */
+  whole: { total: number; new: number };
+  /** Per-product scope keyed by product_id. Only includes products that are
+   *  linked to this competitor. */
+  byProduct: Record<string, { total: number; new: number }>;
+}
+
 export interface FullCompetitorData {
   competitor: CompetitorDetail;
   ads: CompetitorAd[];
   insights: CompetitorInsight[];
-  linkedProducts: ProductOption[];
+  linkedProducts: LinkedProductOption[];
   allProducts: ProductOption[];
+  newAdCounts: NewAdsByScope;
 }
 
 export async function getCompetitorsList(
@@ -131,7 +175,14 @@ export async function getCompetitorDetail(
     await Promise.all([
       supabase
         .from("competitor_ads")
-        .select("id, competitor_id, mapped_product_id, title, source, source_url, landing_page_url, platform, ad_text, notes, created_at")
+        .select(
+          `id, competitor_id, mapped_product_id, title, source, source_url, landing_page_url, platform, ad_text, notes, created_at,
+           competitor_ad_asset_links (
+             asset_id,
+             role,
+             assets ( id, bucket, storage_path, width, height )
+           )`
+        )
         .eq("competitor_id", competitorId)
         .eq("brand_id", brandId)
         .order("created_at", { ascending: false }),
@@ -143,7 +194,7 @@ export async function getCompetitorDetail(
         .order("created_at", { ascending: false }),
       supabase
         .from("product_competitor_links")
-        .select("product_id")
+        .select("product_id, notes")
         .eq("competitor_id", competitorId)
         .eq("brand_id", brandId),
       supabase
@@ -154,16 +205,80 @@ export async function getCompetitorDetail(
         .order("name"),
     ]);
 
-  const linkedProductIds = new Set(
-    (linksResult.data ?? []).map((l) => l.product_id)
-  );
+  const linkRows = (linksResult.data ?? []) as Array<{
+    product_id: string;
+    notes: string | null;
+  }>;
+  const noteByProductId = new Map<string, string | null>();
+  for (const link of linkRows) noteByProductId.set(link.product_id, link.notes);
   const allProducts = (productsResult.data ?? []) as ProductOption[];
+
+  type AdRow = Omit<CompetitorAd, "images"> & {
+    competitor_ad_asset_links: Array<{
+      asset_id: string;
+      assets: {
+        id: string;
+        bucket: string;
+        storage_path: string;
+        width: number | null;
+        height: number | null;
+      } | null;
+    }> | null;
+  };
+
+  const ads: CompetitorAd[] = ((adsResult.data ?? []) as unknown as AdRow[]).map(
+    (row) => {
+      const links = row.competitor_ad_asset_links ?? [];
+      const images: CompetitorAdImage[] = [];
+      for (const link of links) {
+        if (!link.assets) continue;
+        const { data: pub } = supabase.storage
+          .from(link.assets.bucket)
+          .getPublicUrl(link.assets.storage_path);
+        images.push({
+          asset_id: link.assets.id,
+          bucket: link.assets.bucket,
+          storage_path: link.assets.storage_path,
+          public_url: pub.publicUrl,
+          width: link.assets.width,
+          height: link.assets.height,
+        });
+      }
+      const { competitor_ad_asset_links: _drop, ...rest } = row;
+      void _drop;
+      return { ...rest, images };
+    }
+  );
+
+  const linkedProducts = allProducts
+    .filter((p) => noteByProductId.has(p.id))
+    .map<LinkedProductOption>((p) => ({
+      ...p,
+      link_notes: noteByProductId.get(p.id) ?? null,
+    }));
+
+  const newAdCounts = await getNewAdCountsByScope(
+    supabase,
+    competitorId,
+    linkedProducts.map((p) => p.id)
+  );
 
   return {
     competitor: competitor as CompetitorDetail,
-    ads: (adsResult.data ?? []) as CompetitorAd[],
-    insights: (insightsResult.data ?? []) as CompetitorInsight[],
-    linkedProducts: allProducts.filter((p) => linkedProductIds.has(p.id)),
+    ads,
+    insights: ((insightsResult.data ?? []) as Array<
+      Omit<CompetitorInsight, "evidence"> & { evidence: unknown }
+    >).map((row) => ({
+      ...row,
+      evidence: Array.isArray(row.evidence)
+        ? (row.evidence as CompetitorInsightEvidence[])
+        : [],
+    })),
+    linkedProducts,
     allProducts,
+    newAdCounts: {
+      whole: newAdCounts.whole,
+      byProduct: newAdCounts.byProduct,
+    },
   };
 }

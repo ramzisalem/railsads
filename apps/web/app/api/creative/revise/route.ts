@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { reviseCreative } from "@/lib/ai/services";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
-import { checkCreditGate, trackUsage } from "@/lib/billing/gate";
+import { checkCreditGate, safeTrackUsage } from "@/lib/billing/gate";
 import { parseBody, creativeReviseSchema } from "@/lib/validation/schemas";
 import { filterAllowedAttachmentUrls } from "@/lib/studio/chat-attachment-url";
+import { trackCompetitorEvent } from "@/lib/competitors/telemetry";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -31,6 +32,12 @@ export async function POST(request: NextRequest) {
   const gateResponse = await checkCreditGate(brandId, "creative_revision");
   if (gateResponse) return gateResponse;
 
+  const { data: threadRow } = await supabase
+    .from("threads")
+    .select("reference_competitor_ad_id")
+    .eq("id", threadId)
+    .maybeSingle();
+
   try {
     const { output, runId, modelUsed } = await reviseCreative(supabase, {
       brandId,
@@ -39,6 +46,7 @@ export async function POST(request: NextRequest) {
       icpId,
       userMessage: userMessage?.trim() ?? "",
       attachmentUrls: safeAttachmentUrls,
+      referenceCompetitorAdId: threadRow?.reference_competitor_ad_id ?? null,
       userId: user.id,
     });
 
@@ -61,13 +69,27 @@ export async function POST(request: NextRequest) {
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", threadId);
 
-    trackUsage({
+    void safeTrackUsage({
       brandId,
       eventType: "creative_revision",
       userId: user.id,
       threadId,
       aiRunId: runId ?? undefined,
-    }).catch(() => {});
+    });
+
+    if (threadRow?.reference_competitor_ad_id) {
+      await trackCompetitorEvent(supabase, "studio_used_competitor_reference", {
+        brandId,
+        actorId: user.id,
+        entityId: threadRow.reference_competitor_ad_id,
+        payload: {
+          surface: "creative_revision",
+          thread_id: threadId,
+          product_id: productId,
+          ai_run_id: runId ?? null,
+        },
+      });
+    }
 
     return NextResponse.json({
       messageId: msg?.id,

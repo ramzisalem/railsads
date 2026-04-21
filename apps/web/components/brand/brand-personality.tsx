@@ -32,13 +32,12 @@ export function BrandPersonality({
         <TagEditor
           label="Personality traits"
           tags={profile.personality_tags}
-          variant="primary"
           onSave={async (tags) =>
             updateBrandProfile(brandId, { personality_tags: tags })
           }
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-4">
           <div className="rounded-xl border bg-card p-4 space-y-2">
             <div className="text-xs font-medium text-muted-foreground">
               Do&apos;s

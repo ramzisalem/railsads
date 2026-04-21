@@ -1,17 +1,21 @@
 "use client";
 
-import { useTransition } from "react";
-import { Link2, X, Package } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Link2, X, Package, StickyNote, Check } from "lucide-react";
 import {
   linkProductToCompetitor,
   unlinkProductFromCompetitor,
+  updateProductCompetitorLinkNotes,
 } from "@/lib/competitors/actions";
-import type { ProductOption } from "@/lib/competitors/queries";
+import type {
+  LinkedProductOption,
+  ProductOption,
+} from "@/lib/competitors/queries";
 
 interface ProductMappingProps {
   brandId: string;
   competitorId: string;
-  linkedProducts: ProductOption[];
+  linkedProducts: LinkedProductOption[];
   allProducts: ProductOption[];
 }
 
@@ -22,6 +26,7 @@ export function ProductMapping({
   allProducts,
 }: ProductMappingProps) {
   const [isPending, startTransition] = useTransition();
+  const [editingNoteFor, setEditingNoteFor] = useState<string | null>(null);
 
   const linkedIds = new Set(linkedProducts.map((p) => p.id));
   const unlinked = allProducts.filter((p) => !linkedIds.has(p.id));
@@ -40,34 +45,78 @@ export function ProductMapping({
 
   return (
     <div className="panel space-y-4 p-6">
-      <h2 className="heading-md flex items-center gap-2">
-        <Link2 className="h-4 w-4" />
-        Linked Products
-      </h2>
+      <div>
+        <h2 className="heading-md flex items-center gap-2">
+          <Link2 className="h-4 w-4" />
+          Competes for
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Which of OUR products this competitor sells against. Drives the
+          per-product analyzer scope and Studio insight injection.
+        </p>
+      </div>
 
       {linkedProducts.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {linkedProducts.map((p) => (
-            <span
-              key={p.id}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
-            >
-              <Package className="h-3 w-3" />
-              {p.name}
-              <button
-                onClick={() => handleUnlink(p.id)}
-                disabled={isPending}
-                className="rounded-sm p-0.5 hover:bg-primary/20 transition-colors"
-                aria-label={`Unlink ${p.name}`}
+        <div className="space-y-2">
+          {linkedProducts.map((p) => {
+            const isEditing = editingNoteFor === p.id;
+            return (
+              <div
+                key={p.id}
+                className="rounded-lg border border-primary/20 bg-primary/5 p-3"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
+                <div className="flex items-center gap-2">
+                  <Package className="h-3.5 w-3.5 text-primary" />
+                  <span className="flex-1 text-sm font-medium text-primary">
+                    {p.name}
+                  </span>
+                  <button
+                    onClick={() => setEditingNoteFor(isEditing ? null : p.id)}
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    aria-label={p.link_notes ? "Edit overlap note" : "Add overlap note"}
+                    title={p.link_notes ? "Edit overlap note" : "Add overlap note"}
+                  >
+                    <StickyNote className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleUnlink(p.id)}
+                    disabled={isPending}
+                    className="rounded-sm p-1 text-muted-foreground hover:bg-primary/10 hover:text-destructive transition-colors"
+                    aria-label={`Unlink ${p.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                {!isEditing && p.link_notes && (
+                  <p className="mt-1 text-xs text-muted-foreground italic">
+                    {p.link_notes}
+                  </p>
+                )}
+                {isEditing && (
+                  <NoteEditor
+                    initial={p.link_notes ?? ""}
+                    disabled={isPending}
+                    onCancel={() => setEditingNoteFor(null)}
+                    onSave={(value) => {
+                      startTransition(async () => {
+                        await updateProductCompetitorLinkNotes(
+                          competitorId,
+                          p.id,
+                          value
+                        );
+                        setEditingNoteFor(null);
+                      });
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No products linked. Link products to track competitive overlap.
+          No overlap declared yet. Pick the products this competitor goes
+          head-to-head with.
         </p>
       )}
 
@@ -97,6 +146,50 @@ export function ProductMapping({
           Add products first to link them here.
         </p>
       )}
+    </div>
+  );
+}
+
+function NoteEditor({
+  initial,
+  disabled,
+  onCancel,
+  onSave,
+}: {
+  initial: string;
+  disabled: boolean;
+  onCancel: () => void;
+  onSave: (value: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className="mt-2 space-y-2">
+      <textarea
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={2}
+        placeholder="Why they compete (positioning, price band, audience overlap, …)"
+        className="input-field w-full text-xs"
+        disabled={disabled}
+      />
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={onCancel}
+          disabled={disabled}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(value)}
+          disabled={disabled}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          <Check className="h-3 w-3" />
+          Save
+        </button>
+      </div>
     </div>
   );
 }

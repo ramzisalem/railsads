@@ -10,7 +10,12 @@ type AiServiceType =
   | "thread_title";
 
 export interface CreateRunParams {
-  brandId: string;
+  /**
+   * When omitted (e.g. during onboarding before the brand row exists), tracking
+   * is skipped entirely and `createAiRun` returns `null`. The corresponding
+   * `complete`/`fail` calls are no-ops in that case because `runId` will be `null`.
+   */
+  brandId?: string;
   threadId?: string;
   messageId?: string;
   serviceType: AiServiceType;
@@ -34,6 +39,10 @@ export async function createAiRun(
   supabase: SupabaseClient,
   params: CreateRunParams
 ): Promise<string | null> {
+  // No brand yet (e.g. mid-onboarding) — `ai_runs.brand_id` is NOT NULL, so we
+  // cannot persist the run. Usage will be tracked at finalize time instead.
+  if (!params.brandId) return null;
+
   const { data, error } = await supabase
     .from("ai_runs")
     .insert({

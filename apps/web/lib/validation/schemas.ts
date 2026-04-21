@@ -3,9 +3,26 @@ import { z } from "zod";
 const uuid = z.string().uuid();
 const shortText = z.string().min(1).max(500);
 const longText = z.string().min(1).max(10_000);
-const optionalUuid = uuid.optional().or(z.literal("").transform(() => undefined));
+const optionalUuid = uuid
+  .nullish()
+  .or(z.literal("").transform(() => undefined));
 
 const attachmentUrlsField = z.array(z.string().url()).max(4).optional();
+
+/**
+ * Composer "mode" — which deliverables the user wants for this turn:
+ *   - `full`  (default): structured creative copy + auto-chained image
+ *   - `copy`            : structured creative copy only (no image, saves credits)
+ *   - `image`           : skip text, generate the image directly (handled
+ *                         by the client → /api/image/generate route)
+ *
+ * For `creativeGenerateSchema` we only ever see `full` or `copy` — `image`
+ * mode bypasses this route entirely. We accept all three to keep the type
+ * shared, and ignore `image` server-side.
+ */
+export const composerModeSchema = z
+  .enum(["full", "copy", "image"])
+  .default("full");
 
 export const creativeGenerateSchema = z.object({
   brandId: uuid,
@@ -18,7 +35,10 @@ export const creativeGenerateSchema = z.object({
   awareness: z.string().max(100).nullable().optional(),
   /** Public Supabase Storage URLs from /api/studio/chat-attachment */
   attachmentUrls: attachmentUrlsField,
+  mode: composerModeSchema.optional(),
 });
+
+export type ComposerMode = z.infer<typeof composerModeSchema>;
 
 export const creativeReviseSchema = z
   .object({
@@ -41,6 +61,21 @@ export const imageGenerateSchema = z.object({
   threadId: uuid,
   prompt: z.string().min(1).max(2000),
   size: z.enum(["1024x1024", "1536x1024", "1024x1536"]).optional(),
+  /**
+   * Extra reference image URLs to pass to gpt-image-1 in addition to the
+   * product hero / recent chat attachments the server resolves automatically.
+   */
+  referenceImageUrls: z.array(z.string().url()).max(4).optional(),
+});
+
+export const imageEditSchema = z.object({
+  brandId: uuid,
+  threadId: uuid,
+  /** Message that contains the source image (the one the user clicked on). */
+  parentMessageId: uuid,
+  /** Free-text instruction for what to change in the image. */
+  prompt: z.string().min(1).max(2000),
+  size: z.enum(["1024x1024", "1536x1024", "1024x1536"]).optional(),
 });
 
 export const icpGenerateSchema = z.object({
@@ -52,6 +87,10 @@ export const competitorAnalyzeSchema = z.object({
   brandId: uuid,
   competitorId: uuid,
   productId: optionalUuid,
+  /** When true (default), only ads not yet analyzed for this scope are
+   *  sent to the model and the result is merged with the prior insight.
+   *  When false, every in-scope ad is re-analyzed from scratch. */
+  onlyNewAds: z.boolean().optional(),
 });
 
 export const brandImportSchema = z.object({
@@ -61,6 +100,11 @@ export const brandImportSchema = z.object({
 export const brandReimportSchema = z.object({
   brandId: uuid,
   websiteUrl: z.string().min(4).max(2048),
+});
+
+const brandPaletteColorSchema = z.object({
+  segment: z.string().min(1).max(64),
+  hex: z.string().min(4).max(32),
 });
 
 export const updateBrandSchema = z.object({
@@ -73,6 +117,8 @@ export const updateBrandSchema = z.object({
     value_proposition: z.string().max(5000).optional(),
     tone_tags: z.array(z.string().max(50)).max(20).optional(),
     personality_tags: z.array(z.string().max(50)).max(20).optional(),
+    /** Segmented colors; when set, primary/secondary/accent are derived server-side. */
+    color_palette: z.array(brandPaletteColorSchema).max(16).optional(),
     primary_color: z.string().max(20).nullable().optional(),
     secondary_color: z.string().max(20).nullable().optional(),
     accent_color: z.string().max(20).nullable().optional(),

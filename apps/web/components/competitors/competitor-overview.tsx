@@ -2,9 +2,13 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { InlineField } from "@/components/brand/inline-field";
-import { updateCompetitor, deleteCompetitor } from "@/lib/competitors/actions";
+import {
+  updateCompetitor,
+  deleteCompetitor,
+  setCompetitorStatus,
+} from "@/lib/competitors/actions";
 import type { CompetitorDetail } from "@/lib/competitors/queries";
-import { Check, Globe, Pencil, Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Check, Globe, Pencil, Trash2, X } from "lucide-react";
 
 interface CompetitorOverviewProps {
   competitor: CompetitorDetail;
@@ -132,9 +136,25 @@ export function CompetitorOverview({ competitor }: CompetitorOverviewProps) {
     });
   }
 
+  function handleArchiveToggle() {
+    const next = competitor.status === "archived" ? "active" : "archived";
+    startTransition(async () => {
+      await setCompetitorStatus(competitor.id, next);
+    });
+  }
+
+  const isArchived = competitor.status === "archived";
+
   return (
     <div className="panel space-y-5 p-6">
-      <h2 className="heading-md">Overview</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="heading-md">Overview</h2>
+        {isArchived && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Archived
+          </span>
+        )}
+      </div>
 
       <div className="space-y-4">
         <InlineField
@@ -158,7 +178,24 @@ export function CompetitorOverview({ competitor }: CompetitorOverviewProps) {
         />
       </div>
 
-      <div className="border-t pt-4">
+      <div className="border-t pt-4 space-y-3">
+        <button
+          onClick={handleArchiveToggle}
+          disabled={isPending}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          {isArchived ? (
+            <>
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              Restore competitor
+            </>
+          ) : (
+            <>
+              <Archive className="h-3.5 w-3.5" />
+              Archive competitor
+            </>
+          )}
+        </button>
         {!showDelete ? (
           <button
             onClick={() => setShowDelete(true)}

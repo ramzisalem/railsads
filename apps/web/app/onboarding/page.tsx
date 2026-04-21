@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { activateBrandAndGoToStudio } from "./actions";
 import {
   Globe,
   Loader2,
   ArrowRight,
   ArrowLeft,
   Check,
+  ChevronDown,
   Package,
   Users,
   Sparkles,
@@ -16,8 +16,18 @@ import {
   Plus,
   X,
   ExternalLink,
+  Heart,
+  ShieldAlert,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { resolveSiteAbsoluteUrl } from "@/lib/onboarding/resolve-site-url";
+import { BrandPaletteEditor } from "@/components/brand/brand-palette-editor";
+import { TagEditor } from "@/components/brand/tag-editor";
+import {
+  paletteFromLegacyColors,
+  type BrandPaletteColor,
+} from "@/lib/brand/color-palette";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,9 +41,8 @@ interface BrandData {
   value_proposition: string;
   tone_tags: string[];
   personality_tags: string[];
-  primary_color: string | null;
-  secondary_color: string | null;
-  accent_color: string | null;
+  /** Segmented colors for the brand (persisted as `color_palette` + legacy columns). */
+  color_palette: BrandPaletteColor[];
   style_tags: string[];
 }
 
@@ -56,6 +65,8 @@ interface IcpData {
   summary: string;
   pains: string[];
   desires: string[];
+  objections: string[];
+  triggers: string[];
   productIndex: number;
 }
 
@@ -65,6 +76,148 @@ interface CompetitorDraft {
 }
 
 type Step = "url" | "importing" | "brand" | "products" | "icps" | "competitors" | "finishing";
+
+// ---------------------------------------------------------------------------
+// Audience card section helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Mirrors the styling of `IcpCard` on the product page so the onboarding
+ * preview and the persisted audience cards stay visually consistent.
+ */
+function IcpSection({
+  label,
+  icon: Icon,
+  accent,
+  items,
+}: {
+  label: string;
+  icon: LucideIcon;
+  accent: string;
+  items: string[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <span
+          className={`flex h-5 w-5 items-center justify-center rounded-md ${accent}`}
+        >
+          <Icon className="h-3 w-3" />
+        </span>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <ul className="mt-2 space-y-1.5">
+        {items.slice(0, 4).map((item, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-2 text-xs leading-relaxed text-card-foreground"
+          >
+            <span
+              aria-hidden
+              className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50"
+            />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Audience preview card with expand/collapse behaviour. The 4 detail sections
+ * (Pains, Desires, Objections, Triggers) are hidden by default to keep the
+ * generated list scannable; users can drill in per audience.
+ */
+function IcpPreviewCard({
+  title,
+  summary,
+  pains,
+  desires,
+  objections,
+  triggers,
+}: {
+  title: string;
+  summary: string;
+  pains: string[];
+  desires: string[];
+  objections: string[];
+  triggers: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const totalItems =
+    pains.length + desires.length + objections.length + triggers.length;
+  const hasDetails = totalItems > 0;
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex w-full items-start gap-3 p-5">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <h3 className="text-base font-semibold text-card-foreground">
+            {title}
+          </h3>
+          {summary && (
+            <p className="text-small leading-relaxed text-muted-foreground">
+              {summary}
+            </p>
+          )}
+        </div>
+        {hasDetails && (
+          <div className="flex shrink-0 items-center gap-2 pt-0.5">
+            <span className="text-[11px] text-muted-foreground">
+              {totalItems} item{totalItems === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              aria-label={expanded ? "Collapse details" : "Expand details"}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  expanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {expanded && hasDetails && (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 border-t border-border bg-secondary-soft/20 px-5 py-5 sm:grid-cols-2">
+          <IcpSection
+            label="Pains"
+            icon={Heart}
+            accent="text-rose-500 bg-rose-500/10"
+            items={pains}
+          />
+          <IcpSection
+            label="Desires"
+            icon={Sparkles}
+            accent="text-primary bg-primary-soft"
+            items={desires}
+          />
+          <IcpSection
+            label="Objections"
+            icon={ShieldAlert}
+            accent="text-amber-600 bg-amber-500/10"
+            items={objections}
+          />
+          <IcpSection
+            label="Triggers"
+            icon={Zap}
+            accent="text-violet-600 bg-violet-500/10"
+            items={triggers}
+          />
+        </div>
+      )}
+    </article>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Progress bar
@@ -78,14 +231,20 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "competitors", label: "Competitors" },
 ];
 
-function ProgressBar({ current }: { current: Step }) {
+function ProgressBar({
+  current,
+  className,
+}: {
+  current: Step;
+  className?: string;
+}) {
   const stepIndex = STEPS.findIndex(
     (s) => s.key === current || (current === "importing" && s.key === "url")
   );
   const activeIdx = current === "finishing" ? STEPS.length : Math.max(stepIndex, 0);
 
   return (
-    <div className="flex items-center gap-2 mb-10">
+    <div className={`flex items-center gap-2 ${className ?? ""}`}>
       {STEPS.map((s, i) => {
         const done = i < activeIdx;
         const active =
@@ -132,8 +291,8 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("url");
 
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [brandId, setBrandId] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandData | null>(null);
+  const [detectedPalette, setDetectedPalette] = useState<string[]>([]);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [icps, setIcps] = useState<IcpData[]>([]);
 
@@ -189,8 +348,41 @@ export default function OnboardingPage() {
       }
 
       const data = await res.json();
-      setBrandId(data.brandId);
-      setBrand(data.brand);
+      const b = data.brand as Record<string, unknown>;
+      const importedPalette = Array.isArray(b.color_palette)
+        ? (b.color_palette as BrandPaletteColor[])
+        : [];
+      const detected = Array.isArray(b.detected_palette)
+        ? (b.detected_palette as string[]).filter(
+            (h): h is string => typeof h === "string"
+          )
+        : [];
+      setDetectedPalette(detected);
+      setBrand({
+        name: String(b.name ?? ""),
+        description: String(b.description ?? ""),
+        category: String(b.category ?? ""),
+        positioning: String(b.positioning ?? ""),
+        value_proposition: String(b.value_proposition ?? ""),
+        tone_tags: Array.isArray(b.tone_tags) ? (b.tone_tags as string[]) : [],
+        personality_tags: Array.isArray(b.personality_tags)
+          ? (b.personality_tags as string[])
+          : [],
+        color_palette:
+          importedPalette.length > 0
+            ? importedPalette
+            : paletteFromLegacyColors({
+                primary_color:
+                  typeof b.primary_color === "string" ? b.primary_color : null,
+                secondary_color:
+                  typeof b.secondary_color === "string"
+                    ? b.secondary_color
+                    : null,
+                accent_color:
+                  typeof b.accent_color === "string" ? b.accent_color : null,
+              }),
+        style_tags: Array.isArray(b.style_tags) ? (b.style_tags as string[]) : [],
+      });
       setProducts(
         (data.products ?? []).map(
           (
@@ -214,79 +406,75 @@ export default function OnboardingPage() {
     }
   }
 
-  // ---- Step 5: Generate ICPs for selected products ----
-  const [savedProductIds, setSavedProductIds] = useState<
-    { id: string; index: number }[]
-  >([]);
-
+  // ---- Step 5: Generate ICPs for selected products (inline, no DB writes) ----
+  /**
+   * Generates ICPs for every selected product against the inline brand data.
+   * Nothing is persisted — the ICPs live in client state until `completeOnboarding`
+   * sends them to `/api/onboarding/finalize`.
+   */
   async function handleGenerateIcps() {
-    if (!brandId) return;
+    if (!brand) return;
     setStep("finishing");
     setError(null);
 
     const selectedProducts = products.filter((p) => p.selected);
 
     try {
-      let insertedProducts = savedProductIds;
-
-      if (insertedProducts.length === 0) {
-        insertedProducts = [];
-        for (let i = 0; i < selectedProducts.length; i++) {
-          const p = selectedProducts[i];
-          const origin = (() => {
-            try {
-              const u = websiteUrl.trim().startsWith("http")
-                ? websiteUrl.trim()
-                : `https://${websiteUrl.trim()}`;
-              return new URL(u).origin;
-            } catch {
-              return undefined;
-            }
-          })();
-
-          const res = await fetch("/api/onboarding/save-product", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              brandId,
-              name: p.name,
-              shortDescription: p.short_description,
-              description: p.description ?? null,
-              priceText: p.price_text,
-              priceCurrency: p.price_currency ?? null,
-              productUrl: resolveSiteAbsoluteUrl(p.product_url, websiteUrl),
-              imageUrl: resolveSiteAbsoluteUrl(p.image_url, websiteUrl),
-              siteOrigin: origin,
-              keyFeatures: p.key_features ?? [],
-              productCategory: p.product_category ?? null,
-            }),
-          });
-          if (res.ok) {
-            const { productId } = await res.json();
-            insertedProducts.push({ id: productId, index: i });
-          }
-        }
-        setSavedProductIds(insertedProducts);
-      }
-
       const allIcps: IcpData[] = [];
+      const existingTitles: string[] = [];
 
-      for (const prod of insertedProducts) {
-        const res = await fetch("/api/icp/generate", {
+      // Slim brand payload sent with each request — keeps the prompt focused.
+      const brandPayload = {
+        name: brand.name,
+        description: brand.description || undefined,
+        positioning: brand.positioning || undefined,
+        value_proposition: brand.value_proposition || undefined,
+        tone_tags: brand.tone_tags,
+        personality_tags: brand.personality_tags,
+        color_palette: brand.color_palette,
+        style_tags: brand.style_tags,
+      };
+
+      for (let i = 0; i < selectedProducts.length; i++) {
+        const p = selectedProducts[i];
+        const productPayload = {
+          name: p.name,
+          short_description: p.short_description || undefined,
+          description: p.description || undefined,
+          price: p.price_text || undefined,
+          attributes: {
+            ...(p.key_features?.length
+              ? { benefits: p.key_features }
+              : {}),
+            ...(p.product_category
+              ? { import_category: p.product_category }
+              : {}),
+          },
+        };
+
+        const res = await fetch("/api/onboarding/generate-icps", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brandId, productId: prod.id }),
+          body: JSON.stringify({
+            brand: brandPayload,
+            product: productPayload,
+            existingTitles,
+          }),
         });
+
         if (res.ok) {
           const data = await res.json();
           for (const icp of data.icps ?? []) {
             allIcps.push({
               title: icp.title,
-              summary: "",
-              pains: [],
-              desires: [],
-              productIndex: prod.index,
+              summary: icp.summary ?? "",
+              pains: Array.isArray(icp.pains) ? icp.pains : [],
+              desires: Array.isArray(icp.desires) ? icp.desires : [],
+              objections: Array.isArray(icp.objections) ? icp.objections : [],
+              triggers: Array.isArray(icp.triggers) ? icp.triggers : [],
+              productIndex: i,
             });
+            existingTitles.push(icp.title);
           }
         }
       }
@@ -323,99 +511,150 @@ export default function OnboardingPage() {
     setCompetitorDrafts(competitorDrafts.filter((_, idx) => idx !== i));
   }
 
+  /**
+   * "Save competitors" is now just "go to the final create step": we no longer
+   * persist competitors mid-flow because the brand row doesn't exist yet.
+   * `completeOnboarding` sends everything (brand + products + ICPs + competitors)
+   * to `/api/onboarding/finalize` in one shot.
+   */
   async function handleSaveCompetitors() {
-    if (!brandId) {
-      setError("Missing brand. Go back to the website step or refresh the page.");
-      return;
-    }
-    const valid = competitorDrafts.filter((c) => c.name.trim());
-    if (valid.length === 0) {
-      await completeOnboarding();
-      return;
-    }
-
     setSavingCompetitors(true);
     setError(null);
-
     try {
-      let failed = 0;
-      for (const comp of valid) {
-        const res = await fetch("/api/onboarding/save-competitor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            brandId,
-            name: comp.name.trim(),
-            websiteUrl: comp.website_url.trim() || null,
-          }),
-        });
-        if (!res.ok) failed++;
-      }
-      if (failed > 0 && failed === valid.length) {
-        throw new Error("Failed to save competitors");
-      }
-      setSavingCompetitors(false);
       await completeOnboarding();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save competitors");
+      setError(err instanceof Error ? err.message : "Failed to finalize");
     } finally {
       setSavingCompetitors(false);
     }
   }
 
   /**
-   * Server Action sets the cookie; full `location.assign` avoids Next refetching
-   * `/onboarding` after a server-action `redirect()` (POST 303) racing the UI back to step 1.
+   * Calls `/api/onboarding/finalize` to create the brand and all its children
+   * (members, settings, profile, visual identity, products, ICPs, competitors)
+   * in one go. The route also sets the active-brand cookie, so we just need to
+   * navigate to the studio after a successful response.
+   *
+   * Full `location.assign` (not `router.push`) avoids App Router refetching
+   * `/onboarding` mid-transition.
    */
   async function completeOnboarding() {
-    const firstProductId = savedProductIds[0]?.id;
-    const redirectPath = firstProductId ? `/studio?product=${firstProductId}` : "/studio";
-
-    console.info("[railsads:onboarding:client] Continue / completeOnboarding", {
-      brandId,
-      firstProductId,
-      redirectPath,
-      savedProductCount: savedProductIds.length,
-      step,
-    });
-
-    if (!brandId) {
-      console.warn("[railsads:onboarding:client] abort: missing brandId");
-      setError("Missing brand. Please refresh or start again from the website URL step.");
+    if (!brand) {
+      setError("Missing brand data. Please go back to the website step.");
       return;
     }
+
+    console.info("[railsads:onboarding:client] completeOnboarding -> finalize", {
+      step,
+      productCount: products.filter((p) => p.selected).length,
+      icpCount: icps.length,
+      competitorCount: competitorDrafts.filter((c) => c.name.trim()).length,
+    });
+
     setLeaving(true);
     setError(null);
 
-    console.info("[railsads:onboarding:client] calling activateBrandAndGoToStudio …");
-    const result = await activateBrandAndGoToStudio(brandId, redirectPath);
+    try {
+      const selectedProducts = products.filter((p) => p.selected);
+      const productsPayload = selectedProducts.map((p, idx) => ({
+        name: p.name,
+        short_description: p.short_description,
+        description: p.description ?? null,
+        price_text: p.price_text,
+        price_currency: p.price_currency ?? null,
+        product_url: resolveSiteAbsoluteUrl(p.product_url, websiteUrl),
+        image_url: resolveSiteAbsoluteUrl(p.image_url, websiteUrl),
+        key_features: p.key_features ?? [],
+        product_category: p.product_category ?? null,
+        icps: icps
+          .filter((i) => i.productIndex === idx)
+          .map((i) => ({
+            title: i.title,
+            summary: i.summary || undefined,
+            pains: i.pains,
+            desires: i.desires,
+            objections: i.objections,
+            triggers: i.triggers,
+          })),
+      }));
 
-    console.info("[railsads:onboarding:client] activateBrandAndGoToStudio result", {
-      ok: result.ok,
-      path: result.ok ? result.path : undefined,
-      error: result.ok ? undefined : result.error,
-    });
+      const competitorsPayload = competitorDrafts
+        .filter((c) => c.name.trim())
+        .map((c) => ({
+          name: c.name.trim(),
+          website_url: c.website_url.trim() || null,
+        }));
 
-    if (result.ok) {
-      console.info("[railsads:onboarding:client] window.location.assign", { path: result.path });
-      window.location.assign(result.path);
-      return;
+      const res = await fetch("/api/onboarding/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          websiteUrl,
+          brand,
+          products: productsPayload,
+          competitors: competitorsPayload,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create brand");
+      }
+
+      const { firstProductId } = (await res.json()) as {
+        brandId: string;
+        firstProductId: string | null;
+      };
+
+      const redirectPath = firstProductId
+        ? `/studio?product=${firstProductId}`
+        : "/studio";
+
+      console.info("[railsads:onboarding:client] finalize success", {
+        firstProductId,
+        redirectPath,
+      });
+
+      window.location.assign(redirectPath);
+    } catch (err) {
+      console.error("[railsads:onboarding:client] finalize failed", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not create the brand. Please try again."
+      );
+      setLeaving(false);
     }
-
-    setError(
-      result.error === "Forbidden"
-        ? "Could not activate brand"
-        : result.error === "Unauthorized"
-          ? "Please sign in again."
-          : "Could not continue. Try again."
-    );
-    setLeaving(false);
   }
 
+  const showStepper = step !== "importing" && step !== "finishing";
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      {fromNewBrandFlow && (
-        <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+    <div className="relative min-h-screen bg-background">
+      {showStepper && (
+        <header className="fixed top-0 left-0 right-0 z-40 border-b border-border bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+          {fromNewBrandFlow && (
+            <button
+              type="button"
+              onClick={handleExitNewBrandFlow}
+              className="absolute left-4 top-1/2 z-10 -translate-y-1/2 sm:left-6 btn-secondary inline-flex shrink-0 items-center gap-2 py-2 text-xs sm:text-sm"
+              aria-label="Close and return to the app"
+            >
+              <X className="h-4 w-4 shrink-0" />
+              <span className="sm:hidden">Close</span>
+              <span className="hidden sm:inline">Back to app</span>
+            </button>
+          )}
+          <div className="mx-auto flex max-w-5xl items-center px-4 py-3 sm:px-6">
+            <div className="min-w-0 flex-1">
+              <ProgressBar current={step} />
+            </div>
+          </div>
+        </header>
+      )}
+
+      {fromNewBrandFlow && !showStepper && (
+        <div className="fixed left-4 top-4 z-50 sm:left-6 sm:top-6">
           <button
             type="button"
             onClick={handleExitNewBrandFlow}
@@ -428,11 +667,9 @@ export default function OnboardingPage() {
         </div>
       )}
 
-      <div className="w-full max-w-2xl">
-        {step !== "importing" && step !== "finishing" && (
-          <ProgressBar current={step} />
-        )}
-
+      <div
+        className={`mx-auto w-full px-4 pb-16 ${step === "icps" ? "max-w-4xl" : "max-w-2xl"} ${showStepper ? "pt-24 sm:pt-28" : "flex min-h-screen flex-col justify-center py-12"}`}
+      >
         {/* Step 1: URL Input */}
         {step === "url" && (
           <div className="space-y-8">
@@ -537,53 +774,43 @@ export default function OnboardingPage() {
                 <label className="text-sm font-medium text-muted-foreground">
                   Tone
                 </label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {brand.tone_tags.map((t) => (
-                    <span key={t} className="tag">
-                      {t}
-                    </span>
-                  ))}
-                </div>
+                <p className="text-xs text-muted-foreground mt-1 mb-2">
+                  Add or remove descriptors — these guide the voice in every prompt.
+                </p>
+                <TagEditor
+                  label=""
+                  tags={brand.tone_tags}
+                  placeholder="Add tone..."
+                  onChange={(tone_tags) => setBrand({ ...brand, tone_tags })}
+                />
               </div>
 
-              {(brand.primary_color ||
-                brand.secondary_color ||
-                brand.accent_color) && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Colors
-                  </label>
-                  <div className="flex items-center gap-3 mt-2">
-                    {(
-                      [
-                        { label: "Primary", value: brand.primary_color },
-                        { label: "Secondary", value: brand.secondary_color },
-                        { label: "Accent", value: brand.accent_color },
-                      ] as const
-                    )
-                      .filter((c) => c.value)
-                      .map((c) => (
-                        <div key={c.label} className="flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded-lg border"
-                            style={{ backgroundColor: c.value! }}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {c.value}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">
+                  Colors
+                </label>
+                <p className="text-xs text-muted-foreground mt-1 mb-2">
+                  Edit hex values, assign roles, or add swatches — creatives use these labels in prompts.
+                </p>
+                <BrandPaletteEditor
+                  palette={brand.color_palette}
+                  suggestions={detectedPalette}
+                  onChange={(color_palette) =>
+                    setBrand({ ...brand, color_palette })
+                  }
+                />
+              </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
               <button
-                onClick={() => {
-                  updateBrandInDb();
-                  setStep("products");
-                }}
+                onClick={() => setStep("url")}
+                className="btn-ghost flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back
+              </button>
+              <button
+                onClick={() => setStep("products")}
                 className="btn-primary flex items-center gap-2"
               >
                 Continue <ArrowRight className="h-4 w-4" />
@@ -659,27 +886,10 @@ export default function OnboardingPage() {
                           {p.product_category}
                         </p>
                       )}
-                      {p.short_description && (
+                      {(p.short_description || p.description) && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {p.short_description}
+                          {p.short_description || p.description}
                         </p>
-                      )}
-                      {p.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-3">
-                          {p.description}
-                        </p>
-                      )}
-                      {p.key_features && p.key_features.length > 0 && (
-                        <ul className="mt-2 text-xs text-muted-foreground list-disc list-inside space-y-0.5">
-                          {p.key_features.slice(0, 5).map((f, fi) => (
-                            <li key={fi}>{f}</li>
-                          ))}
-                          {p.key_features.length > 5 && (
-                            <li className="list-none text-muted-foreground/80">
-                              +{p.key_features.length - 5} more
-                            </li>
-                          )}
-                        </ul>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                         {p.price_text && (
@@ -765,31 +975,65 @@ export default function OnboardingPage() {
               </div>
               <h1 className="heading-xl">Your audiences</h1>
               <p className="mt-2 text-body text-muted-foreground">
-                We generated ideal customer profiles for your products
+                Ideal customer profiles, grouped by product
               </p>
             </div>
 
-            <div className="space-y-3">
-              {icps.map((icp, i) => {
-                const productName =
-                  products.filter((p) => p.selected)[icp.productIndex]?.name ??
-                  "Product";
-                return (
-                  <div
-                    key={i}
-                    className="rounded-2xl border p-4 space-y-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm font-medium">{icp.title}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      <Package className="inline h-3 w-3 mr-1" />
-                      {productName}
-                    </p>
-                  </div>
-                );
-              })}
+            <div className="space-y-8">
+              {(() => {
+                const selectedProducts = products.filter((p) => p.selected);
+                const groups = selectedProducts.map((product, idx) => ({
+                  product,
+                  productIndex: idx,
+                  icps: icps.filter((i) => i.productIndex === idx),
+                }));
+                return groups
+                  .filter((g) => g.icps.length > 0)
+                  .map((group) => (
+                    <section key={group.productIndex} className="space-y-4">
+                      {/* Product header */}
+                      <div className="flex items-center gap-3">
+                        {group.product.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={group.product.image_url}
+                            alt={group.product.name}
+                            className="h-10 w-10 rounded-lg border border-border bg-card object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-secondary-soft">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-base font-semibold text-foreground truncate">
+                            {group.product.name}
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            {group.icps.length} audience
+                            {group.icps.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Audience rows */}
+                      <div className="space-y-3">
+                        {group.icps.map((icp, i) => (
+                          <IcpPreviewCard
+                            key={`${group.productIndex}-${i}`}
+                            title={icp.title}
+                            summary={icp.summary}
+                            pains={icp.pains}
+                            desires={icp.desires}
+                            objections={icp.objections}
+                            triggers={icp.triggers}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ));
+              })()}
+
               {icps.length === 0 && (
                 <p className="text-center text-sm text-muted-foreground py-8">
                   No audiences were generated. You can add them later from the
@@ -922,16 +1166,6 @@ export default function OnboardingPage() {
     </div>
   );
 
-  // ---- Helper: persist brand edits ----
-  async function updateBrandInDb() {
-    if (!brandId || !brand) return;
-
-    fetch("/api/onboarding/update-brand", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, brand }),
-    }).catch(() => {});
-  }
 }
 
 // ---------------------------------------------------------------------------

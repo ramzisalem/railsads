@@ -9,8 +9,6 @@ import { BrandPersonality } from "@/components/brand/brand-personality";
 import { BrandSource } from "@/components/brand/brand-source";
 import { ReimportButton } from "@/components/brand/reimport-button";
 import { DeleteBrandSection } from "@/components/brand/delete-brand-section";
-import { BillingSection } from "@/components/billing/billing-section";
-import { getBillingOverview } from "@/lib/billing/queries";
 
 export default async function BrandPage() {
   const user = await getCurrentUser();
@@ -29,8 +27,6 @@ export default async function BrandPage() {
       </div>
     );
   }
-
-  const billing = await getBillingOverview(activeBrand.id);
 
   return (
     <div className="space-y-8">
@@ -57,8 +53,6 @@ export default async function BrandPage() {
         visual={data.visual}
         lastImport={data.lastImport}
       />
-
-      <BillingSection billing={billing} />
 
       {data.membershipRole === "owner" && (
         <DeleteBrandSection brandId={data.brand.id} brandName={data.brand.name} />

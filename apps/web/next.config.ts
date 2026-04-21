@@ -5,7 +5,9 @@ const cspDirectives = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.sentry.io",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com",
+  // `https:` is required so the onboarding wizard can preview product images from arbitrary brand websites
+  // (Shopify CDN, custom domains, etc.) before we download them into Supabase Storage on save.
+  "img-src 'self' data: blob: https: https://*.supabase.co https://*.stripe.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io https://api.openai.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",

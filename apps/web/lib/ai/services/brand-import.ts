@@ -7,6 +7,7 @@ import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import {
   extractWebsiteVisualData,
   mergeBrandImportColors,
+  type JsonLdProductHint,
 } from "../website-visual-extract";
 
 async function fetchWebsiteHtml(url: string): Promise<string> {
@@ -31,16 +32,38 @@ async function fetchWebsiteHtml(url: string): Promise<string> {
 }
 
 /**
- * Strip to plain text for the LLM (colors are supplied separately via
- * {@link extractWebsiteVisualData} so we don't lose CSS hex values).
+ * Strip to plain text for the LLM, but **preserve** image and link tokens so
+ * the model can bind product names to nearby images / PDP URLs.
+ *
+ * Colors and JSON-LD products are supplied separately via
+ * {@link extractWebsiteVisualData} so we don't lose those signals either.
  */
 function htmlToImportPlainText(html: string): string {
-  const cleaned = html
+  const withTokens = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<nav[\s\S]*?<\/nav>/gi, "")
     .replace(/<footer[\s\S]*?<\/footer>/gi, "")
     .replace(/<header[\s\S]*?<\/header>/gi, " [HEADER] ")
+    // Preserve <img> as a single inline token so the LLM can associate
+    // images with adjacent product names / headings / link text.
+    .replace(/<img\b([^>]*)>/gi, (_full, attrs: string) => {
+      const src =
+        attrs.match(/\b(?:src|data-src|data-original)=["']([^"']+)["']/i)?.[1];
+      const alt = attrs.match(/\balt=["']([^"']*)["']/i)?.[1];
+      if (!src) return " ";
+      const safeAlt = alt ? ` alt="${alt.slice(0, 80).replace(/"/g, "")}"` : "";
+      return ` [IMG src=${src}${safeAlt}] `;
+    })
+    // Preserve product-detail anchors so the LLM can lift product_url.
+    .replace(/<a\b([^>]*)>/gi, (_full, attrs: string) => {
+      const href = attrs.match(/\bhref=["']([^"']+)["']/i)?.[1];
+      if (!href) return " ";
+      return ` [LINK href=${href}] `;
+    })
+    .replace(/<\/a>/gi, " [/LINK] ");
+
+  const cleaned = withTokens
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -51,18 +74,32 @@ function htmlToImportPlainText(html: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  return cleaned.slice(0, 15000);
+  return cleaned.slice(0, 18000);
 }
 
 export interface ImportBrandParams {
   websiteUrl: string;
-  brandId: string;
+  /**
+   * Optional. When omitted (e.g. mid-onboarding before the brand row exists)
+   * the AI run is not persisted to `ai_runs` (see `createAiRun`).
+   */
+  brandId?: string;
   userId: string;
 }
 
 export interface ImportBrandResult {
   output: BrandImport;
   runId: string | null;
+  /** Raw homepage HTML — exposed for downstream PDP discovery (anchor scan) */
+  homepageHtml: string;
+  /** Structured JSON-LD products found on the homepage */
+  jsonLdProducts: JsonLdProductHint[];
+  /**
+   * Full de-duplicated color palette mined from the site's CSS (hex, rgb(),
+   * rgba(), hsl(), CSS-variable triplets). Ordered most-frequent first.
+   * Primary/secondary/accent already live on `output`; this carries the rest.
+   */
+  detectedPalette: string[];
 }
 
 export async function importBrand(
@@ -115,7 +152,13 @@ export async function importBrand(
       });
     }
 
-    return { output, runId };
+    return {
+      output,
+      runId,
+      homepageHtml: rawHtml,
+      jsonLdProducts: visual.jsonLdProducts,
+      detectedPalette: visual.colorFallbacks.palette,
+    };
   } catch (error) {
     if (runId) {
       await failAiRun(

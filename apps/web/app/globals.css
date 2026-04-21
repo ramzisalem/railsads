@@ -315,22 +315,22 @@
     @apply px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors;
   }
 
-  /* Inputs */
+  /* Inputs — elevated white surface (light) / card token (dark) vs page bg */
   .input-field {
-    @apply w-full rounded-xl border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-primary;
+    @apply w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-card-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-primary;
   }
 
   .textarea-field {
-    @apply w-full resize-none rounded-2xl border bg-background px-4 py-3 text-sm outline-none transition focus:ring-2 focus:ring-primary;
+    @apply w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-card-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-primary;
   }
 
   /* Tags / badges */
   .tag {
-    @apply rounded-full bg-secondary-soft px-3 py-1 text-xs text-secondary-dark;
+    @apply rounded-full bg-secondary-soft px-3.5 py-1.5 text-sm text-foreground dark:text-secondary-foreground;
   }
 
   .tag-primary {
-    @apply rounded-full bg-primary-soft px-3 py-1 text-xs text-primary;
+    @apply rounded-full bg-primary-soft px-3.5 py-1.5 text-sm text-primary;
   }
 
   /* Prose max width for readable content */

@@ -14,6 +14,7 @@ export interface ThreadDetail {
   product_id: string;
   icp_id: string | null;
   template_id: string | null;
+  reference_competitor_ad_id: string | null;
   title: string | null;
   angle: string | null;
   awareness: string | null;
@@ -27,6 +28,11 @@ export interface GeneratedImage {
   asset_id: string;
   storage_path: string;
   prompt: string;
+  /** When this image was produced by editing a previous one, links back to it. */
+  parent_asset_id?: string | null;
+  parent_message_id?: string | null;
+  /** Free-text description of the change requested in this iteration. */
+  edit_prompt?: string | null;
 }
 
 export interface StructuredPayload {
@@ -64,6 +70,8 @@ export interface ProductOption {
   id: string;
   name: string;
   short_description: string | null;
+  /** Public URL of the primary product image, when imported. */
+  image_url: string | null;
 }
 
 export interface IcpOption {
@@ -71,12 +79,33 @@ export interface IcpOption {
   title: string;
   summary: string | null;
   product_id: string;
+  is_primary: boolean;
+  pains: string[];
+  desires: string[];
+  objections: string[];
+  triggers: string[];
+}
+
+export interface CompetitorAdOption {
+  id: string;
+  competitor_id: string;
+  competitor_name: string;
+  /** Mapped product, when the user has linked the ad to a specific product. */
+  mapped_product_id: string | null;
+  title: string | null;
+  ad_text: string | null;
+  platform: string | null;
+  source_url: string | null;
+  landing_page_url: string | null;
+  /** Public URL of the primary screenshot, when available. */
+  image_url: string | null;
 }
 
 export interface StudioContext {
   products: ProductOption[];
   icps: IcpOption[];
   templates: TemplateOption[];
+  competitorAds: CompetitorAdOption[];
 }
 
 export const AWARENESS_LEVELS = [

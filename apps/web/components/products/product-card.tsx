@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, ExternalLink } from "lucide-react";
+import { Users, ExternalLink, Package } from "lucide-react";
 import type { ProductListItem } from "@/lib/products/queries";
 
 interface ProductCardProps {
@@ -22,8 +22,20 @@ export function ProductCard({ product }: ProductCardProps) {
       href={`/products/${product.id}`}
       className="panel group flex flex-col gap-3 p-5 transition-colors hover:bg-muted/50"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary-soft">
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <Package className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
             {product.name}
           </h3>

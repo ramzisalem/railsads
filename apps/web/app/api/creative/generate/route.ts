@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { generateCreative, generateThreadTitle } from "@/lib/ai/services";
-import { checkCreditGate, trackUsage } from "@/lib/billing/gate";
+import { checkCreditGate, safeTrackUsage } from "@/lib/billing/gate";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
 import { parseBody, creativeGenerateSchema } from "@/lib/validation/schemas";
 import { filterAllowedAttachmentUrls } from "@/lib/studio/chat-attachment-url";
+import { trackCompetitorEvent } from "@/lib/competitors/telemetry";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
   const gateResponse = await checkCreditGate(brandId, "creative_generation");
   if (gateResponse) return gateResponse;
 
+  const { data: threadRow } = await supabase
+    .from("threads")
+    .select("reference_competitor_ad_id")
+    .eq("id", threadId)
+    .maybeSingle();
+
   try {
     const { output, runId } = await generateCreative(supabase, {
       brandId,
@@ -49,6 +56,7 @@ export async function POST(request: NextRequest) {
       angle,
       awareness,
       attachmentUrls: safeAttachmentUrls,
+      referenceCompetitorAdId: threadRow?.reference_competitor_ad_id ?? null,
       userId: user.id,
     });
 
@@ -102,13 +110,27 @@ export async function POST(request: NextRequest) {
       console.error("Thread title generation or update failed:", titleErr);
     }
 
-    await trackUsage({
+    await safeTrackUsage({
       brandId,
       eventType: "creative_generation",
       userId: user.id,
       threadId,
       aiRunId: runId ?? undefined,
     });
+
+    if (threadRow?.reference_competitor_ad_id) {
+      await trackCompetitorEvent(supabase, "studio_used_competitor_reference", {
+        brandId,
+        actorId: user.id,
+        entityId: threadRow.reference_competitor_ad_id,
+        payload: {
+          surface: "creative_generation",
+          thread_id: threadId,
+          product_id: productId,
+          ai_run_id: runId ?? null,
+        },
+      });
+    }
 
     return NextResponse.json({
       messageId: msg?.id,

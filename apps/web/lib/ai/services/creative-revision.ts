@@ -12,6 +12,7 @@ import {
   fetchIcpContext,
   fetchConversationHistory,
   fetchLatestCreativePayload,
+  fetchCompetitorAdReference,
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import { buildResponsesUserInput } from "../responses-user-input";
@@ -41,6 +42,8 @@ export interface ReviseCreativeParams {
   userMessage: string;
   /** Public Supabase Storage URLs (chat-attachments) passed to vision */
   attachmentUrls?: string[];
+  /** Competitor ad pinned to this thread (used as inspiration only). */
+  referenceCompetitorAdId?: string | null;
   userId: string;
 }
 
@@ -78,12 +81,19 @@ export async function reviseCreative(
   });
 
   try {
-    const [brand, product, icp, conversationHistory] = await Promise.all([
-      fetchBrandContext(supabase, params.brandId),
-      fetchProductContext(supabase, params.productId),
-      params.icpId ? fetchIcpContext(supabase, params.icpId) : undefined,
-      fetchConversationHistory(supabase, params.threadId),
-    ]);
+    const [brand, product, icp, conversationHistory, referenceAd] =
+      await Promise.all([
+        fetchBrandContext(supabase, params.brandId),
+        fetchProductContext(supabase, params.productId),
+        params.icpId ? fetchIcpContext(supabase, params.icpId) : undefined,
+        fetchConversationHistory(supabase, params.threadId),
+        params.referenceCompetitorAdId
+          ? fetchCompetitorAdReference(
+              supabase,
+              params.referenceCompetitorAdId
+            )
+          : Promise.resolve(null),
+      ]);
 
     const { system, user } = buildCreativeRevisionPrompt({
       brand,
@@ -92,13 +102,26 @@ export async function reviseCreative(
       currentCreative,
       conversationHistory,
       userRequest: params.userMessage,
+      referenceAd: referenceAd ?? undefined,
     });
 
-    const images = params.attachmentUrls ?? [];
+    const images = [
+      ...(referenceAd?.image_url ? [referenceAd.image_url] : []),
+      ...(params.attachmentUrls ?? []),
+    ];
+    const noteParts: string[] = [];
+    if (referenceAd?.image_url) {
+      noteParts.push(
+        `The first attached image is the pinned competitor reference for this thread — pull composition / energy from it but never copy claims, brand marks, or pricing.`
+      );
+    }
+    if ((params.attachmentUrls ?? []).length > 0) {
+      noteParts.push(
+        `The user attached ${params.attachmentUrls!.length} reference image(s) in this message. Use them to align tone, subjects, packaging, and composition in the revised copy and image_prompt.`
+      );
+    }
     const userWithRefs =
-      images.length > 0
-        ? `${user}\n\nThe user attached ${images.length} reference image(s) in this message. Use them to align tone, subjects, packaging, and composition in the revised copy and image_prompt.`
-        : user;
+      noteParts.length > 0 ? `${user}\n\n${noteParts.join("\n\n")}` : user;
 
     const client = getOpenAIClient();
     const response = await client.responses.parse({

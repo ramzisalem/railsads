@@ -34,6 +34,8 @@ export interface BrandVisualIdentity {
   primary_color: string | null;
   secondary_color: string | null;
   accent_color: string | null;
+  /** Segmented palette `{ segment, hex }[]` — source of truth when non-empty. */
+  color_palette?: { segment: string; hex: string }[] | null;
   style_tags: string[];
   visual_notes: string | null;
   source: string;

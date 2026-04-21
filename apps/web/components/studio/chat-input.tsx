@@ -7,8 +7,9 @@ import {
   useCallback,
   useLayoutEffect,
 } from "react";
-import { ImagePlus, Send, X } from "lucide-react";
+import { ImagePlus, Send, X, Sparkles, Type, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ComposerMode } from "@/lib/validation/schemas";
 
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -18,11 +19,50 @@ const TEXTAREA_MAX_HEIGHT = 280;
 interface ChatInputProps {
   brandId: string;
   threadId: string;
-  onSend: (message: string, attachmentUrls: string[]) => Promise<void>;
+  onSend: (
+    message: string,
+    attachmentUrls: string[],
+    mode: ComposerMode
+  ) => Promise<void>;
   disabled?: boolean;
   /** Parent supplies top border (e.g. with chat context strip above) */
   embedded?: boolean;
+  /**
+   * Composer mode controls what the assistant produces for this turn:
+   *   - `full`  : structured copy + auto-chained image (default)
+   *   - `copy`  : copy only, skip the image (saves credits, faster)
+   *   - `image` : skip copy, generate the image directly from the prompt
+   * Lifted to the parent so it persists across turns within a session.
+   */
+  mode: ComposerMode;
+  onModeChange: (mode: ComposerMode) => void;
 }
+
+const MODE_OPTIONS: {
+  value: ComposerMode;
+  label: string;
+  hint: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "full",
+    label: "Full ad",
+    hint: "Copy + image",
+    icon: <Sparkles className="h-3 w-3" />,
+  },
+  {
+    value: "copy",
+    label: "Copy only",
+    hint: "Skip image",
+    icon: <Type className="h-3 w-3" />,
+  },
+  {
+    value: "image",
+    label: "Image only",
+    hint: "Skip copy",
+    icon: <ImageIcon className="h-3 w-3" />,
+  },
+];
 
 type PendingFile = {
   id: string;
@@ -36,6 +76,8 @@ export function ChatInput({
   onSend,
   disabled,
   embedded,
+  mode,
+  onModeChange,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
   const [pending, setPending] = useState<PendingFile[]>([]);
@@ -152,7 +194,7 @@ export function ChatInput({
         textareaRef.current.style.height = "auto";
       }
 
-      await onSend(trimmed, uploadedUrls);
+      await onSend(trimmed, uploadedUrls, mode);
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -209,6 +251,31 @@ export function ChatInput({
           ))}
         </div>
       )}
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 rounded-full bg-muted/40 p-0.5">
+          {MODE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => onModeChange(opt.value)}
+              title={opt.hint}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+                mode === opt.value
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {opt.icon}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground">
+          {MODE_OPTIONS.find((o) => o.value === mode)?.hint}
+        </span>
+      </div>
       <div
         className={cn(
           "flex w-full items-end gap-1.5 rounded-[1.75rem] border border-border bg-muted/25 p-1.5 shadow-sm",
@@ -245,7 +312,7 @@ export function ChatInput({
           disabled={isDisabled}
           style={{ maxHeight: TEXTAREA_MAX_HEIGHT }}
           className={cn(
-            "min-h-[2.75rem] flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-5 outline-none",
+            "min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 outline-none",
             "placeholder:text-muted-foreground",
             "disabled:opacity-50",
             "overflow-y-auto"

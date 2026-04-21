@@ -6,7 +6,12 @@ import type {
   TemplateContext,
   CompetitorAdContext,
   CompetitorInsightForPrompt,
+  CompetitorReferenceAd,
 } from "./prompts";
+import {
+  effectiveColorPalette,
+  paletteForDb,
+} from "@/lib/brand/color-palette";
 
 /**
  * Fetches compact brand context for AI prompts.
@@ -31,7 +36,9 @@ export async function fetchBrandContext(
       .single(),
     supabase
       .from("brand_visual_identity")
-      .select("primary_color, secondary_color, accent_color, style_tags")
+      .select(
+        "primary_color, secondary_color, accent_color, color_palette, style_tags"
+      )
       .eq("brand_id", brandId)
       .single(),
   ]);
@@ -39,6 +46,15 @@ export async function fetchBrandContext(
   const brand = brandResult.data;
   const profile = profileResult.data;
   const visual = visualResult.data;
+
+  const paletteRows = paletteForDb(
+    effectiveColorPalette({
+      color_palette: visual?.color_palette,
+      primary_color: visual?.primary_color,
+      secondary_color: visual?.secondary_color,
+      accent_color: visual?.accent_color,
+    })
+  );
 
   return {
     name: brand?.name ?? "Unknown Brand",
@@ -52,6 +68,7 @@ export async function fetchBrandContext(
     primary_color: visual?.primary_color ?? undefined,
     secondary_color: visual?.secondary_color ?? undefined,
     accent_color: visual?.accent_color ?? undefined,
+    color_palette: paletteRows.length ? paletteRows : undefined,
     style_tags: visual?.style_tags ?? [],
   };
 }
@@ -162,32 +179,133 @@ export async function fetchTemplateContext(
 }
 
 /**
- * Fetches competitor ads for analysis.
+ * Fetches competitor ads for analysis. When `productId` is provided we scope
+ * to ads explicitly mapped to that product so the analysis can answer
+ * "what's working for *this* product?" rather than averaging across the
+ * competitor's whole library.
+ *
+ * Each ad gets a stable short reference (`ad-1`, `ad-2`, …) — the prompt
+ * uses these to cite evidence and the service maps them back to UUIDs.
  */
 export async function fetchCompetitorAds(
   supabase: SupabaseClient,
-  competitorId: string
+  competitorId: string,
+  options: { productId?: string | null } = {}
 ): Promise<{ competitorName: string; ads: CompetitorAdContext[] }> {
+  let adsQuery = supabase
+    .from("competitor_ads")
+    .select(
+      `id, title, ad_text, platform, source_url, landing_page_url, mapped_product_id, created_at,
+       competitor_ad_asset_links ( assets ( bucket, storage_path ) )`
+    )
+    .eq("competitor_id", competitorId)
+    .order("created_at", { ascending: false });
+
+  if (options.productId) {
+    adsQuery = adsQuery.eq("mapped_product_id", options.productId);
+  }
+
   const [competitorResult, adsResult] = await Promise.all([
     supabase
       .from("competitors")
       .select("name")
       .eq("id", competitorId)
       .single(),
-    supabase
-      .from("competitor_ads")
-      .select("title, ad_text, platform")
-      .eq("competitor_id", competitorId)
-      .order("created_at", { ascending: false }),
+    adsQuery,
   ]);
 
-  return {
-    competitorName: competitorResult.data?.name ?? "Unknown Competitor",
-    ads: (adsResult.data ?? []).map((ad) => ({
+  type AdRow = {
+    id: string;
+    title: string | null;
+    ad_text: string | null;
+    platform: string | null;
+    source_url: string | null;
+    landing_page_url: string | null;
+    competitor_ad_asset_links:
+      | Array<{ assets: { bucket: string; storage_path: string } | null }>
+      | null;
+  };
+
+  const ads: CompetitorAdContext[] = (
+    (adsResult.data ?? []) as unknown as AdRow[]
+  ).map((ad, index) => {
+    const link = ad.competitor_ad_asset_links?.find((l) => l.assets) ?? null;
+    let image_url: string | undefined;
+    if (link?.assets) {
+      const { data: pub } = supabase.storage
+        .from(link.assets.bucket)
+        .getPublicUrl(link.assets.storage_path);
+      image_url = pub.publicUrl;
+    }
+    return {
+      id: ad.id,
+      ref: `ad-${index + 1}`,
       title: ad.title ?? undefined,
       ad_text: ad.ad_text ?? undefined,
       platform: ad.platform ?? undefined,
-    })),
+      source_url: ad.source_url ?? undefined,
+      landing_page_url: ad.landing_page_url ?? undefined,
+      image_url,
+    };
+  });
+
+  return {
+    competitorName: competitorResult.data?.name ?? "Unknown Competitor",
+    ads,
+  };
+}
+
+/**
+ * Fetches a single competitor ad pinned as a Studio reference. Returns the
+ * ad's primary screenshot URL + copy + competitor name in a shape ready for
+ * the creative / image prompts.
+ */
+export async function fetchCompetitorAdReference(
+  supabase: SupabaseClient,
+  adId: string
+): Promise<CompetitorReferenceAd | null> {
+  const { data: ad } = await supabase
+    .from("competitor_ads")
+    .select(
+      `title, ad_text, platform, source_url,
+       competitors!inner ( name ),
+       competitor_ad_asset_links ( assets ( bucket, storage_path ) )`
+    )
+    .eq("id", adId)
+    .maybeSingle();
+
+  if (!ad) return null;
+
+  const competitor = Array.isArray(ad.competitors)
+    ? ad.competitors[0]
+    : (ad.competitors as { name: string } | null);
+  // Supabase types nested selects as `T[]` even for one-to-one foreign keys;
+  // normalize so each link.assets is a single record (or null).
+  const links = (ad.competitor_ad_asset_links ?? []) as unknown as Array<{
+    assets:
+      | { bucket: string; storage_path: string }
+      | { bucket: string; storage_path: string }[]
+      | null;
+  }>;
+  let image_url: string | null = null;
+  for (const link of links) {
+    const asset = Array.isArray(link.assets) ? link.assets[0] : link.assets;
+    if (asset) {
+      const { data: pub } = supabase.storage
+        .from(asset.bucket)
+        .getPublicUrl(asset.storage_path);
+      image_url = pub.publicUrl;
+      break;
+    }
+  }
+
+  return {
+    competitor_name: competitor?.name ?? "Unknown",
+    title: ad.title,
+    platform: ad.platform,
+    ad_text: ad.ad_text,
+    image_url,
+    source_url: ad.source_url,
   };
 }
 
@@ -279,7 +397,14 @@ export async function fetchConversationHistory(
 }
 
 /**
- * Finds the latest assistant structured payload for revision context.
+ * Finds the latest assistant message that actually contains a CREATIVE
+ * payload (hooks/headlines/body/direction/image_prompt) — NOT a standalone
+ * `generated_image` message. We scan a window of recent assistant messages
+ * because, with the new auto-chain, the most recent assistant message in a
+ * thread is usually the chained `generated_image` (not the copy that
+ * produced it). Without this filter, `reviseCreative` and the image
+ * suffix-builder would both see an empty payload and the model would lose
+ * the entire prior brief.
  */
 export async function fetchLatestCreativePayload(
   supabase: SupabaseClient,
@@ -291,19 +416,36 @@ export async function fetchLatestCreativePayload(
   creative_direction: string;
   image_prompt: string;
 } | null> {
-  const { data: message } = await supabase
+  const { data: messages } = await supabase
     .from("messages")
     .select("structured_payload")
     .eq("thread_id", threadId)
     .eq("role", "assistant")
     .not("structured_payload", "is", null)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(20);
 
-  if (!message?.structured_payload) return null;
+  if (!messages?.length) return null;
 
-  const p = message.structured_payload as Record<string, unknown>;
+  const creative = messages
+    .map((m) => m.structured_payload as Record<string, unknown> | null)
+    .find((p) => {
+      if (!p) return false;
+      return (
+        (Array.isArray(p.hooks) && (p.hooks as unknown[]).length > 0) ||
+        (Array.isArray(p.headlines) &&
+          (p.headlines as unknown[]).length > 0) ||
+        (Array.isArray(p.primary_texts) &&
+          (p.primary_texts as unknown[]).length > 0) ||
+        (typeof p.creative_direction === "string" &&
+          p.creative_direction.length > 0) ||
+        (typeof p.image_prompt === "string" && p.image_prompt.length > 0)
+      );
+    });
+
+  if (!creative) return null;
+
+  const p = creative;
   return {
     hooks: Array.isArray(p.hooks) ? (p.hooks as string[]) : [],
     headlines: Array.isArray(p.headlines) ? (p.headlines as string[]) : [],

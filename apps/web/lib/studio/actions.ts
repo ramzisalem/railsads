@@ -27,7 +27,8 @@ export async function createThread(
   icpId?: string | null,
   templateId?: string | null,
   angle?: string | null,
-  awareness?: string | null
+  awareness?: string | null,
+  referenceCompetitorAdId?: string | null
 ): Promise<CreateStudioThreadResult> {
   return createStudioThread(
     brandId,
@@ -35,7 +36,8 @@ export async function createThread(
     icpId,
     templateId,
     angle,
-    awareness
+    awareness,
+    referenceCompetitorAdId
   );
 }
 
@@ -62,6 +64,7 @@ export async function updateThreadContext(
     template_id?: string | null;
     angle?: string | null;
     awareness?: string | null;
+    reference_competitor_ad_id?: string | null;
   }
 ) {
   const { supabase, user } = await getAuth();

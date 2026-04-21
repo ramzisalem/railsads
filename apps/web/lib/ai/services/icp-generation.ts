@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { zodTextFormat } from "openai/helpers/zod";
 import { getOpenAIClient, getModel } from "../provider";
 import { IcpGenerationSchema, type IcpGeneration } from "../schemas";
-import { buildIcpGenerationPrompt, PROMPT_VERSIONS } from "../prompts";
+import {
+  buildIcpGenerationPrompt,
+  PROMPT_VERSIONS,
+  type BrandContext,
+  type ProductContext,
+} from "../prompts";
 import {
   fetchBrandContext,
   fetchProductContext,
@@ -83,4 +88,59 @@ export async function generateIcps(
     }
     throw error;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Inline variant — used during onboarding before the brand/product rows exist
+// ---------------------------------------------------------------------------
+
+export interface GenerateIcpsInlineParams {
+  brand: BrandContext;
+  product: ProductContext;
+  /** Optional list of already-generated ICPs to avoid duplicates across products. */
+  existingIcps?: { title: string; summary?: string }[];
+}
+
+/**
+ * Generates ICPs from in-memory brand + product objects without touching the
+ * database. Used by onboarding so we can defer all DB writes (including ICPs
+ * and the brand row) to the final "Create" step.
+ */
+export async function generateIcpsInline(
+  params: GenerateIcpsInlineParams
+): Promise<IcpGeneration> {
+  const model = getModel("efficient");
+
+  const { system, user } = buildIcpGenerationPrompt({
+    brand: params.brand,
+    product: params.product,
+    existingIcps:
+      params.existingIcps && params.existingIcps.length > 0
+        ? params.existingIcps.map((i) => ({
+            title: i.title,
+            summary: i.summary,
+            pains: [],
+            desires: [],
+            objections: [],
+            triggers: [],
+          }))
+        : undefined,
+  });
+
+  const client = getOpenAIClient();
+  const response = await client.responses.parse({
+    model,
+    instructions: system,
+    input: user,
+    text: {
+      format: zodTextFormat(IcpGenerationSchema, "icp_generation"),
+    },
+  });
+
+  const output = response.output_parsed;
+  if (!output) {
+    throw new Error("No structured output returned from OpenAI");
+  }
+
+  return output;
 }

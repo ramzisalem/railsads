@@ -5,8 +5,16 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 export const CreativeOutputSchema = z.object({
-  hooks: z.array(z.string()).describe("3 attention-grabbing opening hooks"),
-  headlines: z.array(z.string()).describe("3 short, punchy headlines"),
+  hooks: z
+    .array(z.string())
+    .describe(
+      "3 attention-grabbing opening hooks. The FIRST item is your top recommendation and will be baked into the image as on-image text."
+    ),
+  headlines: z
+    .array(z.string())
+    .describe(
+      "3 short, punchy headlines (under 10 words each). The FIRST item is your top recommendation and will be baked into the image as on-image text."
+    ),
   primary_texts: z
     .array(z.string())
     .describe("2 longer-form ad body copy variations"),
@@ -18,11 +26,13 @@ export const CreativeOutputSchema = z.object({
   image_prompt: z
     .string()
     .describe(
-      "A prompt to generate a matching ad image based on the creative direction"
+      "A prompt for an image model to produce the FINISHED ad. Must describe a single composed scene that bakes the FIRST hook AND FIRST headline as on-image text overlays — quote each string verbatim in double quotes, specify position (upper/lower third, centered/left), typography (weight + brand-aligned color), treatment (shadow/outline), and reserve negative space for legibility. The image will be uploaded as-is to Meta / TikTok / YouTube — copy must already be on the image."
     ),
   recommendation: z
     .string()
-    .describe("1-2 sentence recommendation on which hook+headline combo works best"),
+    .describe(
+      "1-2 sentence recommendation explaining why hook[0] + headline[0] are the strongest pairing for this audience."
+    ),
 });
 
 export type CreativeOutput = z.infer<typeof CreativeOutputSchema>;
@@ -32,10 +42,16 @@ export type CreativeOutput = z.infer<typeof CreativeOutputSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreativeRevisionSchema = z.object({
-  hooks: z.array(z.string()).describe("Revised hooks (keep unchanged ones)"),
+  hooks: z
+    .array(z.string())
+    .describe(
+      "Revised hooks (keep unchanged ones). The FIRST item is your top recommendation and will be baked into the revised image as on-image text."
+    ),
   headlines: z
     .array(z.string())
-    .describe("Revised headlines (keep unchanged ones)"),
+    .describe(
+      "Revised headlines (keep unchanged ones). The FIRST item is your top recommendation and will be baked into the revised image as on-image text."
+    ),
   primary_texts: z
     .array(z.string())
     .describe("Revised primary texts (keep unchanged ones)"),
@@ -44,7 +60,9 @@ export const CreativeRevisionSchema = z.object({
     .describe("Updated creative direction if relevant"),
   image_prompt: z
     .string()
-    .describe("Updated image prompt if creative direction changed"),
+    .describe(
+      "Updated image_prompt for a FINISHED ad. Must bake the FIRST revised hook AND FIRST revised headline into the scene as on-image text overlays — quote both strings verbatim, specify position, typography, and treatment, and reserve negative space for legibility. If only the copy changed, keep the underlying scene the same and only swap the on-image text strings + their styling."
+    ),
   change_summary: z
     .string()
     .describe("Brief explanation of what was changed and why"),
@@ -76,6 +94,33 @@ export type IcpItem = z.infer<typeof IcpItemSchema>;
 // Competitor Analysis
 // ---------------------------------------------------------------------------
 
+export const COMPETITOR_PATTERN_CATEGORIES = [
+  "hook",
+  "angle",
+  "emotional",
+  "visual",
+  "offer",
+  "cta",
+] as const;
+
+export const CompetitorEvidenceItemSchema = z.object({
+  category: z
+    .enum(COMPETITOR_PATTERN_CATEGORIES)
+    .describe(
+      "Which pattern bucket this citation belongs to. Must match the pattern arrays below."
+    ),
+  pattern: z
+    .string()
+    .describe(
+      "The exact pattern string this citation supports — copy it verbatim from the matching `*_patterns` array."
+    ),
+  evidence_ad_ids: z
+    .array(z.string())
+    .describe(
+      "Ad reference ids ('ad-1', 'ad-2', …) that demonstrate this pattern. Use the labels from the prompt — IDs are mapped back to UUIDs server-side."
+    ),
+});
+
 export const CompetitorAnalysisSchema = z.object({
   summary: z.string().describe("Overall analysis summary of the competitor's ad strategy"),
   hook_patterns: z.array(z.string()).describe("Common hooks and attention-grabbers used"),
@@ -84,10 +129,16 @@ export const CompetitorAnalysisSchema = z.object({
   visual_patterns: z.array(z.string()).describe("Visual patterns and styles observed"),
   offer_patterns: z.array(z.string()).describe("Common offers and deal structures"),
   cta_patterns: z.array(z.string()).describe("Call-to-action patterns used"),
+  evidence: z
+    .array(CompetitorEvidenceItemSchema)
+    .describe(
+      "Citations grounding each pattern in specific ads. Every pattern in the *_patterns arrays above MUST appear in at least one evidence entry."
+    ),
   confidence_score: z.number().min(0).max(100).describe("Confidence in analysis quality, 0-100"),
 });
 
 export type CompetitorAnalysis = z.infer<typeof CompetitorAnalysisSchema>;
+export type CompetitorEvidenceItem = z.infer<typeof CompetitorEvidenceItemSchema>;
 
 // ---------------------------------------------------------------------------
 // Thread Title
@@ -151,6 +202,7 @@ export const BrandImportSchema = z.object({
       key_features: z
         .array(z.string())
         .max(16)
+        .nullable()
         .optional()
         .describe("Bullet features, specs, or differentiators visible for this SKU"),
       product_category: z

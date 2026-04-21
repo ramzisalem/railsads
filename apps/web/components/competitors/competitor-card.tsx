@@ -25,9 +25,16 @@ export function CompetitorCard({ competitor }: CompetitorCardProps) {
       className="panel group flex flex-col gap-3 p-5 transition-colors hover:bg-muted/50"
     >
       <div className="min-w-0">
-        <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-          {competitor.name}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+            {competitor.name}
+          </h3>
+          {competitor.status === "archived" && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Archived
+            </span>
+          )}
+        </div>
         {competitor.website_url && (
           <p className="mt-0.5 text-xs text-muted-foreground truncate">
             {competitor.website_url.replace(/^https?:\/\//, "")}
@@ -46,10 +53,18 @@ export function CompetitorCard({ competitor }: CompetitorCardProps) {
             Website
           </span>
         )}
-        {competitor.last_analyzed && (
-          <span className="flex items-center gap-1">
+        {competitor.last_analyzed ? (
+          <span
+            className="flex items-center gap-1"
+            title={`Last analyzed ${new Date(competitor.last_analyzed).toLocaleString()}`}
+          >
             <Clock className="h-3 w-3" />
-            {timeAgo(competitor.last_analyzed)}
+            Analyzed {timeAgo(competitor.last_analyzed)}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-muted-foreground/70">
+            <Clock className="h-3 w-3" />
+            Not analyzed
           </span>
         )}
       </div>

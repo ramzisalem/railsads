@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useTransition,
+} from "react";
 import { Check, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +29,7 @@ export function InlineField({
   const [draft, setDraft] = useState(value ?? "");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (editing) {
@@ -31,6 +37,15 @@ export function InlineField({
       inputRef.current?.select();
     }
   }, [editing]);
+
+  // Auto-grow the textarea to fit its content while editing.
+  useLayoutEffect(() => {
+    if (!editing) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft, editing]);
 
   function startEdit() {
     setDraft(value ?? "");
@@ -76,26 +91,15 @@ export function InlineField({
       <div className="space-y-1.5">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="flex items-start gap-2">
-          {multiline ? (
-            <textarea
-              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={3}
-              className="textarea-field flex-1"
-              disabled={isPending}
-            />
-          ) : (
-            <input
-              ref={inputRef as React.RefObject<HTMLInputElement>}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="input-field flex-1"
-              disabled={isPending}
-            />
-          )}
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={multiline ? 3 : 1}
+            className="textarea-field flex-1 overflow-hidden [overflow-wrap:anywhere]"
+            disabled={isPending}
+          />
           <button
             onClick={save}
             disabled={isPending}
@@ -134,7 +138,7 @@ export function InlineField({
       >
         <span
           className={cn(
-            "text-sm whitespace-pre-wrap",
+            "min-w-0 flex-1 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]",
             !value && "text-muted-foreground italic"
           )}
         >

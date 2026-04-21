@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { generateIcps } from "@/lib/ai/services";
-import { checkCreditGate, trackUsage } from "@/lib/billing/gate";
+import { checkCreditGate, safeTrackUsage } from "@/lib/billing/gate";
 import { verifyBrandMembership } from "@/lib/auth/verify-membership";
 import { parseBody, icpGenerateSchema } from "@/lib/validation/schemas";
 
@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
           raw_generation_payload: icp,
           created_by: user.id,
         })
-        .select("id, title")
+        .select("id, title, summary, pains, desires, objections, triggers")
         .single();
 
       if (data) insertedIcps.push(data);
     }
 
-    await trackUsage({
+    await safeTrackUsage({
       brandId,
       eventType: "icp_generation",
       userId: user.id,

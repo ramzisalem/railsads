@@ -5,7 +5,7 @@ import { InlineField } from "@/components/brand/inline-field";
 import { TagEditor } from "@/components/brand/tag-editor";
 import { updateProduct, deleteProduct } from "@/lib/products/actions";
 import type { ProductDetail } from "@/lib/products/queries";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 interface ProductOverviewProps {
   product: ProductDetail;
@@ -25,7 +25,8 @@ export function ProductOverview({ product }: ProductOverviewProps) {
   const [showDelete, setShowDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const benefits = (product.attributes as { benefits?: string[] })?.benefits ?? [];
+  const benefits =
+    (product.attributes as { benefits?: string[] })?.benefits ?? [];
 
   function handleDelete() {
     startTransition(async () => {
@@ -34,21 +35,13 @@ export function ProductOverview({ product }: ProductOverviewProps) {
   }
 
   return (
-    <div className="panel space-y-5 p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="heading-md">Overview</h2>
-        {product.product_url && (
-          <a
-            href={product.product_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ExternalLink className="h-3 w-3" />
-            View product
-          </a>
-        )}
-      </div>
+    <div className="panel space-y-6 p-6">
+      <header>
+        <h2 className="heading-md">Details</h2>
+        <p className="mt-1 text-small text-muted-foreground">
+          Edit how this product is described to the AI.
+        </p>
+      </header>
 
       <div className="space-y-4">
         <InlineField
@@ -76,16 +69,14 @@ export function ProductOverview({ product }: ProductOverviewProps) {
           }
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <div className="text-xs text-muted-foreground">Price</div>
-            {product.price_amount !== null && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {formatPrice(product.price_amount, product.price_currency)}
-              </div>
-            )}
             <InlineField
-              label=""
+              label={
+                product.price_amount !== null
+                  ? `Price (${formatPrice(product.price_amount, product.price_currency)})`
+                  : "Price"
+              }
               value={
                 product.price_amount !== null
                   ? String(product.price_amount)
@@ -122,7 +113,7 @@ export function ProductOverview({ product }: ProductOverviewProps) {
         />
       </div>
 
-      <div className="border-t pt-4">
+      <div className="border-t border-border pt-4">
         {!showDelete ? (
           <button
             onClick={() => setShowDelete(true)}
@@ -132,7 +123,7 @@ export function ProductOverview({ product }: ProductOverviewProps) {
             Delete product
           </button>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs text-destructive">
               Delete this product and all its ICPs?
             </span>

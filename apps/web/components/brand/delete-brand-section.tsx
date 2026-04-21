@@ -74,7 +74,7 @@ export function DeleteBrandSection({ brandId, brandName }: DeleteBrandSectionPro
               onChange={(e) => setConfirmName(e.target.value)}
               autoComplete="off"
               disabled={pending}
-              className="mt-1.5 w-full max-w-md rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="input-field mt-1.5 max-w-md py-2.5"
               placeholder={brandName}
             />
           </div>

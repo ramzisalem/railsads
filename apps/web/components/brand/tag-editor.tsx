@@ -7,7 +7,13 @@ interface TagEditorProps {
   label: string;
   tags: string[];
   variant?: "default" | "primary";
-  onSave: (tags: string[]) => Promise<{ error?: string }>;
+  /** Async server-action save; when present, edits are debounced via a transition. */
+  onSave?: (tags: string[]) => Promise<{ error?: string }>;
+  /** Controlled local edits; use instead of `onSave` when persisting later (e.g. wizards). */
+  onChange?: (tags: string[]) => void;
+  placeholder?: string;
+  /** Tailwind class for the input width (default: `w-40`). */
+  inputWidthClassName?: string;
 }
 
 export function TagEditor({
@@ -15,13 +21,31 @@ export function TagEditor({
   tags,
   variant = "default",
   onSave,
+  onChange,
+  placeholder = "Add...",
+  inputWidthClassName = "w-40",
 }: TagEditorProps) {
   const [draft, setDraft] = useState("");
   const [isPending, startTransition] = useTransition();
   const [optimisticTags, setOptimisticTags] = useState<string[] | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const displayTags = optimisticTags ?? tags;
+
+  function commit(next: string[]) {
+    if (onChange) {
+      onChange(next);
+      return;
+    }
+    if (onSave) {
+      setOptimisticTags(next);
+      startTransition(async () => {
+        await onSave(next);
+        setOptimisticTags(null);
+      });
+    }
+  }
 
   function addTag() {
     const value = draft.trim();
@@ -31,27 +55,32 @@ export function TagEditor({
     }
     const next = [...displayTags, value];
     setDraft("");
-    setOptimisticTags(next);
-    startTransition(async () => {
-      await onSave(next);
-      setOptimisticTags(null);
-    });
+    commit(next);
     inputRef.current?.focus();
+  }
+
+  function openAdder() {
+    setIsAdding(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function closeAdder() {
+    setIsAdding(false);
+    setDraft("");
   }
 
   function removeTag(tag: string) {
     const next = displayTags.filter((t) => t !== tag);
-    setOptimisticTags(next);
-    startTransition(async () => {
-      await onSave(next);
-      setOptimisticTags(null);
-    });
+    commit(next);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") {
       e.preventDefault();
       addTag();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeAdder();
     }
   }
 
@@ -72,32 +101,49 @@ export function TagEditor({
             <button
               onClick={() => removeTag(tag)}
               disabled={isPending}
-              className="ml-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+              className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
               aria-label={`Remove ${tag}`}
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </span>
         ))}
-        <div className="flex items-center gap-1">
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add..."
-            className="w-24 rounded-lg border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary transition"
-            disabled={isPending}
-          />
+        {isAdding ? (
+          <div className="flex items-center gap-1">
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => {
+                if (!draft.trim()) closeAdder();
+              }}
+              placeholder={placeholder}
+              className={`${inputWidthClassName} rounded-full border border-border bg-card px-3.5 py-1.5 text-sm text-card-foreground outline-none transition placeholder:text-muted-foreground focus:ring-1 focus:ring-primary`}
+              disabled={isPending}
+            />
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={addTag}
+              disabled={isPending || !draft.trim()}
+              className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+              aria-label="Add tag"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={addTag}
-            disabled={isPending || !draft.trim()}
-            className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
-            aria-label="Add tag"
+            type="button"
+            onClick={openAdder}
+            disabled={isPending}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors disabled:opacity-40"
+            aria-label={placeholder}
           >
             <Plus className="h-3.5 w-3.5" />
+            Add
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
