@@ -17,6 +17,12 @@ import { sendMessage, saveCreativeVersion } from "@/lib/studio/actions";
 import type { GeneratedImage, MessageItem } from "@/lib/studio/types";
 import type { ImageGenSize } from "@/lib/studio/image-gen-sizes";
 import type { ComposerMode } from "@/lib/validation/schemas";
+import {
+  BillingError,
+  fetchJson,
+  isBillingError,
+} from "@/lib/billing/client";
+import { BillingErrorBanner } from "@/components/billing/billing-error-banner";
 
 interface ThreadContext {
   productId: string;
@@ -51,6 +57,7 @@ export function Conversation({
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<BillingError | null>(null);
   const [editorMessageId, setEditorMessageId] = useState<string | null>(null);
   // Composer mode: persisted within a session so toggling "Image only" sticks
   // for follow-ups until the user changes it.
@@ -189,15 +196,10 @@ export function Conversation({
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `AI request failed (${res.status})`);
-    }
-
-    const data = (await res.json().catch(() => ({}))) as {
+    const data = await fetchJson<{
       messageId?: string;
       output?: { image_prompt?: string | null };
-    };
+    }>(res);
 
     return {
       messageId: data.messageId ?? null,
@@ -216,12 +218,7 @@ export function Conversation({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brandId, threadId, prompt, size: imageSize }),
     });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(
-        data.error || `Image generation failed (${res.status})`
-      );
-    }
+    await fetchJson(res);
   }
 
   /**
@@ -239,6 +236,7 @@ export function Conversation({
   ) {
     setIsGenerating(true);
     setAiError(null);
+    setBillingError(null);
     setChainImageForMessageId(null);
 
     try {
@@ -266,21 +264,26 @@ export function Conversation({
           await generateImageForPrompt(imagePrompt);
           router.refresh();
         } catch (imgErr) {
-          setAiError(
-            imgErr instanceof Error
-              ? `Copy ready, but image failed: ${imgErr.message}`
-              : "Copy ready, but image generation failed."
-          );
-          // The image route logs a system "Image generation failed: …"
-          // message on failure. Refresh so it lands in the timeline.
+          if (isBillingError(imgErr)) {
+            setBillingError(imgErr);
+          } else {
+            setAiError(
+              imgErr instanceof Error
+                ? `Copy ready, but image failed: ${imgErr.message}`
+                : "Copy ready, but image generation failed."
+            );
+          }
           router.refresh();
         } finally {
           setChainImageForMessageId(null);
         }
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : "Something went wrong");
-      // Surface any system-failure message persisted by the route.
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setAiError(err instanceof Error ? err.message : "Something went wrong");
+      }
       router.refresh();
     } finally {
       setIsGenerating(false);
@@ -362,15 +365,19 @@ export function Conversation({
   async function handleGenerateImage(prompt: string, messageId?: string) {
     setIsGenerating(true);
     setAiError(null);
+    setBillingError(null);
     if (messageId) setChainImageForMessageId(messageId);
     try {
       await generateImageForPrompt(prompt);
       router.refresh();
     } catch (err) {
-      setAiError(
-        err instanceof Error ? err.message : "Image generation failed"
-      );
-      // Pull in the system error message recorded by the route.
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setAiError(
+          err instanceof Error ? err.message : "Image generation failed"
+        );
+      }
       router.refresh();
     } finally {
       setChainImageForMessageId(null);
@@ -414,6 +421,13 @@ export function Conversation({
                 </div>
               </div>
             </div>
+          )}
+
+          {billingError && (
+            <BillingErrorBanner
+              error={billingError}
+              onDismiss={() => setBillingError(null)}
+            />
           )}
 
           {aiError && (

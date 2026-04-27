@@ -34,7 +34,13 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const activeBrandCookie = request.cookies.get(ACTIVE_BRAND_COOKIE)?.value ?? null;
 
-  const publicPaths = ["/login", "/signup", "/forgot-password", "/auth/callback"];
+  const publicPaths = [
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/auth/callback",
+    "/pricing",
+  ];
   const isPublicPath = publicPaths.some((p) => pathname.startsWith(p));
 
   const isApiPath = pathname.startsWith("/api");

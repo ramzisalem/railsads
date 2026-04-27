@@ -9,8 +9,8 @@ export interface CreditBalance {
 }
 
 /**
- * Get the current credit balance for a brand by summing the immutable ledger.
- * Positive deltas = grants, negative deltas = deductions.
+ * Sum of every credit_ledger row for a brand within a window.
+ * Used by the daily usage-reconcile cron.
  */
 export async function getCreditBalance(
   admin: SupabaseClient,
@@ -45,52 +45,164 @@ export async function getCreditBalance(
 }
 
 /**
- * Check if a brand has enough credits for a specific action.
- * Returns the cost and whether the action is allowed.
+ * Why a billing decision blocked an action — drives the upgrade UX.
  */
-export async function checkCredits(
-  admin: SupabaseClient,
-  brandId: string
-): Promise<{ remaining: number; limit: number; hasSubscription: boolean }> {
-  const sub = await getActiveSubscription(admin, brandId);
-  if (!sub) {
-    return { remaining: 0, limit: 0, hasSubscription: false };
-  }
+export type CreditDenialReason =
+  | "subscription_required"
+  | "trial_exhausted"
+  | "insufficient_credits";
 
-  const balance = await getCreditBalance(
-    admin,
-    brandId,
-    new Date(sub.current_period_start),
-    new Date(sub.current_period_end)
-  );
-
-  return { remaining: balance.remaining, limit: balance.limit, hasSubscription: true };
+export interface CreditState {
+  /** Whatever the brand has left (all-time sum of ledger deltas). */
+  remaining: number;
+  /** Positive deltas inside the active period (subscription period or this calendar month). */
+  grantedThisPeriod: number;
+  /** Absolute value of negative deltas inside the active period. */
+  usedThisPeriod: number;
+  /** Plan monthly limit, or total trial allowance if no plan, or 0 if neither. */
+  limitPerPeriod: number;
+  /** True iff there's a billing-active subscription row. */
+  hasSubscription: boolean;
+  /** True iff the brand has any positive `trial_grant` row. */
+  hasTrial: boolean;
+  /** Active subscription period boundaries (null without subscription). */
+  periodStart: Date | null;
+  periodEnd: Date | null;
 }
 
 /**
- * Check if a brand can perform a specific event type and return the cost.
+ * Single source of truth for "what does this brand currently have available
+ * to spend?". Combines subscription state, trial grants, and the immutable
+ * ledger so every gate / UI surface answers the same question.
+ */
+export async function getCreditState(
+  admin: SupabaseClient,
+  brandId: string
+): Promise<CreditState> {
+  const [allDeltas, sub, trialRows] = await Promise.all([
+    admin.from("credit_ledger").select("delta").eq("brand_id", brandId),
+    getActiveSubscription(admin, brandId),
+    admin
+      .from("credit_ledger")
+      .select("delta")
+      .eq("brand_id", brandId)
+      .eq("reason", "trial_grant"),
+  ]);
+
+  const remaining = (allDeltas.data ?? []).reduce(
+    (s, r) => s + (r.delta as number),
+    0
+  );
+
+  let periodStart: Date | null = null;
+  let periodEnd: Date | null = null;
+  if (sub?.current_period_start && sub.current_period_end) {
+    periodStart = new Date(sub.current_period_start);
+    periodEnd = new Date(sub.current_period_end);
+  } else {
+    const now = new Date();
+    periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    periodEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+  }
+
+  const { data: periodEntries } = await admin
+    .from("credit_ledger")
+    .select("delta")
+    .eq("brand_id", brandId)
+    .gte("created_at", periodStart.toISOString())
+    .lte("created_at", periodEnd.toISOString());
+
+  let grantedThisPeriod = 0;
+  let usedThisPeriod = 0;
+  for (const entry of periodEntries ?? []) {
+    const d = entry.delta as number;
+    if (d > 0) grantedThisPeriod += d;
+    else usedThisPeriod += Math.abs(d);
+  }
+
+  let limitPerPeriod = 0;
+  if (sub?.plan_id) {
+    const { data: plan } = await admin
+      .from("plans")
+      .select("monthly_credit_limit")
+      .eq("id", sub.plan_id)
+      .single();
+    limitPerPeriod = plan?.monthly_credit_limit ?? 0;
+  } else {
+    limitPerPeriod = (trialRows.data ?? []).reduce(
+      (s, r) => s + (r.delta as number),
+      0
+    );
+  }
+
+  const hasSubscription = sub !== null;
+  const hasTrial = (trialRows.data?.length ?? 0) > 0;
+
+  return {
+    remaining,
+    grantedThisPeriod,
+    usedThisPeriod,
+    limitPerPeriod,
+    hasSubscription,
+    hasTrial,
+    periodStart: sub ? periodStart : null,
+    periodEnd: sub ? periodEnd : null,
+  };
+}
+
+/**
+ * Decide if a brand can run an action and what to tell them if not.
+ * Free actions (cost=0, e.g. iteration) are always allowed.
  */
 export async function canPerformAction(
   admin: SupabaseClient,
   brandId: string,
   eventType: string
-): Promise<{ allowed: boolean; cost: number; remaining: number }> {
+): Promise<{
+  allowed: boolean;
+  cost: number;
+  remaining: number;
+  reason: CreditDenialReason | null;
+}> {
   const cost = CREDIT_COSTS[eventType] ?? 0;
 
   if (cost === 0) {
-    return { allowed: true, cost: 0, remaining: -1 };
+    return { allowed: true, cost: 0, remaining: -1, reason: null };
   }
 
-  const { remaining, hasSubscription } = await checkCredits(admin, brandId);
+  const state = await getCreditState(admin, brandId);
 
-  if (!hasSubscription) {
-    return { allowed: true, cost, remaining: -1 };
+  if (state.remaining >= cost) {
+    return {
+      allowed: true,
+      cost,
+      remaining: state.remaining,
+      reason: null,
+    };
+  }
+
+  let reason: CreditDenialReason;
+  if (state.hasSubscription) {
+    reason = "insufficient_credits";
+  } else if (state.hasTrial) {
+    reason = "trial_exhausted";
+  } else {
+    reason = "subscription_required";
   }
 
   return {
-    allowed: remaining >= cost,
+    allowed: false,
     cost,
-    remaining,
+    remaining: state.remaining,
+    reason,
   };
 }
 
@@ -184,6 +296,22 @@ export async function grantMonthlyCredits(
     return null;
   }
 
+  // Idempotency — if we've already granted for this subscription + period,
+  // skip silently. Multiple webhook events (checkout.session.completed,
+  // customer.subscription.created, invoice.paid) can fire for the same
+  // billing cycle and we must only credit once.
+  const periodStartIso = periodStart.toISOString().split("T")[0];
+  const { data: existing } = await admin
+    .from("credit_ledger")
+    .select("id")
+    .eq("brand_id", brandId)
+    .eq("subscription_id", subscriptionId)
+    .eq("reason", "monthly_grant")
+    .eq("period_start", periodStartIso)
+    .maybeSingle();
+
+  if (existing) return existing.id;
+
   return grantCredits(admin, {
     brandId,
     subscriptionId,
@@ -195,21 +323,49 @@ export async function grantMonthlyCredits(
   });
 }
 
+/**
+ * One-time trial grant — issued the first time a brand is created.
+ * Idempotent: skips when a `trial_grant` already exists for the brand.
+ */
+export const TRIAL_CREDITS = 100;
+
+export async function grantTrialCreditsIfMissing(
+  admin: SupabaseClient,
+  brandId: string,
+  metadata: Record<string, unknown> = {}
+): Promise<string | null> {
+  const { data: existing } = await admin
+    .from("credit_ledger")
+    .select("id")
+    .eq("brand_id", brandId)
+    .eq("reason", "trial_grant")
+    .maybeSingle();
+
+  if (existing) return existing.id;
+
+  return grantCredits(admin, {
+    brandId,
+    amount: TRIAL_CREDITS,
+    reason: "trial_grant",
+    metadata: { source: "brand_creation", ...metadata },
+  });
+}
+
 async function getActiveSubscription(
   admin: SupabaseClient,
   brandId: string
 ): Promise<{
   id: string;
-  current_period_start: string;
-  current_period_end: string;
-  plan_id: string;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  plan_id: string | null;
 } | null> {
   const { data } = await admin
     .from("subscriptions")
     .select("id, current_period_start, current_period_end, plan_id")
     .eq("brand_id", brandId)
-    .in("status", ["active", "trialing"])
-    .single();
+    .in("status", ["active", "trialing", "past_due"])
+    .maybeSingle();
 
   return data ?? null;
 }

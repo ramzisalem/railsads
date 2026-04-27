@@ -18,7 +18,7 @@ export default function SignupPage() {
         <div className="text-center">
           <h1 className="heading-lg">Create your account</h1>
           <p className="mt-2 text-body text-muted-foreground">
-            Start creating ads in minutes
+            Meet your AI ads creative strategist
           </p>
         </div>
 

@@ -2,6 +2,17 @@
 
 Production deployment checklist for RailsAds on Vercel + Supabase + Stripe.
 
+This monorepo ships **two** deployable apps:
+
+| App | Path | Stack | Recommended domain |
+|---|---|---|---|
+| Dashboard / API | `apps/web` | Next.js 16 | `app.railsads.com` |
+| Marketing site | `apps/marketing` | Static HTML / CSS / JS | `railsads.com` (apex) + `www.railsads.com` |
+
+The recommendation is **two separate Vercel projects** in the same Git repository.
+Each project has its own Root Directory, its own `vercel.json`, its own domain,
+and only redeploys when its folder changes.
+
 ---
 
 ## Prerequisites
@@ -113,16 +124,20 @@ In Stripe Dashboard → Settings → Customer portal:
 
 ---
 
-## 4. Vercel Deployment
+## 4. Vercel Deployment — App (`apps/web`)
 
 ### 4.1 Import project
 
 1. Go to [vercel.com/new](https://vercel.com/new)
 2. Import the GitHub repository
-3. **Root Directory**: `apps/web`
-4. **Framework Preset**: Next.js (auto-detected)
-5. **Build Command**: `npm run build`
-6. **Install Command**: `npm install`
+3. **Project name**: `railsads-web`
+4. **Root Directory**: `apps/web`
+5. **Framework Preset**: Next.js (auto-detected)
+6. **Build Command**: `npm run build`
+7. **Install Command**: `npm install`
+
+> The `vercel.json` at the repo root configures this project (regions, headers, cron jobs).
+> When Vercel detects a project with Root Directory = `apps/web`, it picks up that file.
 
 ### 4.2 Set environment variables
 
@@ -194,6 +209,104 @@ After domain is live, update:
 1. **Supabase Auth** → Site URL and redirect URLs
 2. **Stripe webhook** → Update endpoint URL if using new domain
 3. **`NEXT_PUBLIC_APP_URL`** env var in Vercel
+
+---
+
+## 5b. Vercel Deployment — Marketing site (`apps/marketing`)
+
+The marketing site is plain HTML / CSS / JS — no build step, no framework.
+Deploy it as its own Vercel project so it can live on the apex domain
+(`railsads.com`) while the app stays at `app.railsads.com`.
+
+### 5b.1 Update auth links to the app subdomain
+
+Marketing CTAs (`Start free`, `Log in`) currently use relative paths like
+`/signup` and `/login`. Once the app lives at `app.railsads.com`, those need
+to be absolute. From the repo root, run a one-time replace:
+
+```bash
+cd apps/marketing
+for f in *.html; do
+  # Match href="/signup", href="/login", and href="/signup?plan=..."
+  sed -i '' \
+    -e 's|href="/signup|href="https://app.railsads.com/signup|g' \
+    -e 's|href="/login|href="https://app.railsads.com/login|g' \
+    "$f"
+done
+```
+
+Internal links (`/pricing.html`, `/features.html`, `#faq`) stay relative — they're
+served by the marketing project itself.
+
+> If you'd rather host the app on the apex and the marketing on `www`, swap the
+> domains below and skip this step.
+
+### 5b.2 Import project
+
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import the **same** GitHub repository
+3. **Project name**: `railsads-marketing`
+4. **Root Directory**: `apps/marketing`
+5. **Framework Preset**: Other (no preset) — it's a static site
+6. **Build Command**: leave empty
+7. **Output Directory**: `.` (the marketing folder itself)
+8. **Install Command**: leave empty
+
+`apps/marketing/vercel.json` ships with:
+- `cleanUrls: true` so `/pricing` works alongside `/pricing.html`
+- HSTS / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy
+- Long-lived cache headers on `/assets/*`
+- Permanent redirect `/index.html → /`
+
+### 5b.3 No environment variables needed
+
+The marketing site has zero runtime dependencies. No keys, no env vars.
+
+### 5b.4 Skip rebuilds when the app changes
+
+In **Project → Settings → Git → Ignored Build Step**, paste:
+
+```bash
+git diff --quiet HEAD^ HEAD ./apps/marketing
+```
+
+This makes `railsads-marketing` only rebuild when files inside `apps/marketing`
+change. Apply the equivalent (`./apps/web`) to the `railsads-web` project so
+the two don't ping-pong on every push.
+
+### 5b.5 Domains
+
+In **Project → Settings → Domains** for `railsads-marketing`, add:
+- `railsads.com` (apex — DNS A record to `76.76.21.21` per Vercel's instructions)
+- `www.railsads.com` (CNAME to `cname.vercel-dns.com`)
+
+In **Project → Settings → Domains** for `railsads-web`:
+- `app.railsads.com` (CNAME to `cname.vercel-dns.com`)
+
+Vercel issues SSL certificates automatically.
+
+### 5b.6 Verify
+
+After deploys finish:
+
+```bash
+curl -I https://railsads.com/
+curl -I https://railsads.com/pricing
+curl -I https://app.railsads.com/login
+```
+
+Each should return `200`. The marketing site's CTAs should send the browser to
+`https://app.railsads.com/signup`.
+
+---
+
+## 5c. Alternative: single Vercel project with rewrites
+
+If you'd rather serve everything from `railsads.com` (no app subdomain), you can
+add a Next.js middleware rewrite in `apps/web` that proxies the marketing HTML
+into the app's `public/` directory at build time. This keeps SEO clean but
+couples the two deploys. **Not recommended for most teams** — separate projects
+let designers ship marketing copy without touching the dashboard.
 
 ---
 

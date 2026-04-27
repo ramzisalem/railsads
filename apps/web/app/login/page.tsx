@@ -8,7 +8,7 @@ import { signIn } from "@/lib/auth/actions";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "/";
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
   const callbackError = searchParams.get("error");
 
   const [state, formAction, isPending] = useActionState(

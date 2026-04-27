@@ -306,7 +306,7 @@ export default function OnboardingPage() {
   }, []);
 
   function handleExitNewBrandFlow() {
-    router.push("/");
+    router.push("/dashboard");
   }
 
   // ---- Step 1: Import website ----

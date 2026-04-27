@@ -197,18 +197,19 @@ Intelligent
 🚀 11. Taglines
 
 Primary
-Your AI workspace for ads
+AI Ads Creative Strategist
 
 
 Alternatives
+Meet your AI ads creative strategist
+Your AI strategist for ad creative
 Create better ads, faster
 From product to high-performing ads
-Turn ideas into ads that convert
 
 
 🧾 12. Brand Summary
 
-We are a premium, calm, and structured AI workspace
+We are a premium, calm, and structured AI ads creative strategist
 that helps ecommerce brands create and refine ad creatives.
 
 We combine:

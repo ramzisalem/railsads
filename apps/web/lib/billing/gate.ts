@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/db/supabase-admin";
-import { canPerformAction } from "./credits";
+import { canPerformAction, type CreditDenialReason } from "./credits";
 import { logUsageAndDeduct } from "./usage";
 import { CREDIT_COSTS } from "./stripe";
+
+const DENIAL_MESSAGES: Record<CreditDenialReason, string> = {
+  subscription_required:
+    "Subscribe to a plan to start creating ads with RailsAds.",
+  trial_exhausted:
+    "You've used your free trial. Subscribe to keep creating ads.",
+  insufficient_credits:
+    "You've reached your monthly credit limit. Upgrade to keep creating.",
+};
 
 /**
  * Check if a brand has enough credits for an action.
@@ -16,19 +25,20 @@ export async function checkCreditGate(
   if (cost === 0) return null;
 
   const admin = createAdminClient();
-  const { allowed, remaining } = await canPerformAction(
+  const { allowed, remaining, reason } = await canPerformAction(
     admin,
     brandId,
     eventType
   );
 
-  if (!allowed) {
+  if (!allowed && reason) {
     return NextResponse.json(
       {
-        error: "insufficient_credits",
-        message: "You've reached your monthly credit limit. Please upgrade your plan to continue.",
+        error: reason,
+        message: DENIAL_MESSAGES[reason],
         remaining,
         cost,
+        upgradeUrl: "/billing",
       },
       { status: 402 }
     );

@@ -24,6 +24,12 @@ import {
 } from "@/lib/studio/image-gen-sizes";
 import type { GeneratedImage } from "@/lib/studio/types";
 import { cn } from "@/lib/utils";
+import {
+  BillingError,
+  fetchJson,
+  isBillingError,
+} from "@/lib/billing/client";
+import { BillingErrorBanner } from "@/components/billing/billing-error-banner";
 
 /**
  * A version of a generated image with the message metadata required to track
@@ -89,6 +95,7 @@ export function ImageEditDialog({
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<BillingError | null>(null);
   const [mounted, setMounted] = useState(false);
   // Aspect ratio is auto-derived from the active image's natural dimensions
   // (see `handleImageLoad`) so an edit always preserves the source ratio.
@@ -117,6 +124,7 @@ export function ImageEditDialog({
     if (open) {
       setActiveMessageId(initialMessageId);
       setError(null);
+      setBillingError(null);
       setDraft("");
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -155,6 +163,7 @@ export function ImageEditDialog({
     if (!prompt.trim() || editing || !activeVersion) return;
     setEditing(true);
     setError(null);
+    setBillingError(null);
     try {
       const res = await fetch("/api/image/edit", {
         method: "POST",
@@ -167,13 +176,7 @@ export function ImageEditDialog({
           size: imageSize,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        messageId?: string;
-        error?: string;
-      };
-      if (!res.ok) {
-        throw new Error(data.error || `Edit failed (${res.status})`);
-      }
+      const data = await fetchJson<{ messageId?: string }>(res);
       setDraft("");
       // Refresh the thread so the new versions show up in the rail. We also
       // optimistically pre-select the just-created version so the user sees
@@ -181,7 +184,11 @@ export function ImageEditDialog({
       if (data.messageId) setActiveMessageId(data.messageId);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Edit failed");
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setError(err instanceof Error ? err.message : "Edit failed");
+      }
     } finally {
       setEditing(false);
     }
@@ -233,6 +240,14 @@ export function ImageEditDialog({
           </div>
 
           <div className="shrink-0 border-t border-border bg-card">
+            {billingError && (
+              <div className="border-b border-border/60 px-4 py-2 sm:px-6">
+                <BillingErrorBanner
+                  error={billingError}
+                  onDismiss={() => setBillingError(null)}
+                />
+              </div>
+            )}
             {error && (
               <div className="border-b border-border/60 bg-destructive/10 px-4 py-2 text-xs text-destructive sm:px-6">
                 {error}

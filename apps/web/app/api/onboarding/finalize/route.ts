@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/db/supabase-admin";
 import { parseBody } from "@/lib/validation/schemas";
 import { ACTIVE_BRAND_COOKIE } from "@/lib/auth/get-current-brand";
 import { safeTrackUsage } from "@/lib/billing/gate";
+import { grantTrialCreditsIfMissing } from "@/lib/billing/credits";
 import {
   paletteForDb,
   paletteFromLegacyColors,
@@ -322,7 +323,21 @@ export async function POST(request: NextRequest) {
     }
 
     // ----------------------------------------------------------------------
-    // 5) Usage tracking — one website_import + N icp_generation
+    // 5) Trial credits — one-time 100 credit grant so users can test the
+    //    product before being asked to subscribe. Best-effort: never blocks
+    //    onboarding completion.
+    // ----------------------------------------------------------------------
+    try {
+      await grantTrialCreditsIfMissing(admin, brand.id, {
+        granted_during: "onboarding",
+        website_url: normalizedWebsiteUrl,
+      });
+    } catch (e) {
+      console.error("[onboarding] trial credit grant failed:", e);
+    }
+
+    // ----------------------------------------------------------------------
+    // 6) Usage tracking — one website_import + N icp_generation
     // ----------------------------------------------------------------------
     void safeTrackUsage({
       brandId: brand.id,
@@ -339,7 +354,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ----------------------------------------------------------------------
-    // 6) Active brand cookie + return ids
+    // 7) Active brand cookie + return ids
     // ----------------------------------------------------------------------
     const isProduction = process.env.NODE_ENV === "production";
     const cookieStore = await cookies();

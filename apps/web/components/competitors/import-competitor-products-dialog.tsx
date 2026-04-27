@@ -13,6 +13,12 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { resolveSiteAbsoluteUrl } from "@/lib/onboarding/resolve-site-url";
+import {
+  BillingError,
+  fetchJson,
+  isBillingError,
+} from "@/lib/billing/client";
+import { BillingErrorBanner } from "@/components/billing/billing-error-banner";
 
 interface ImportedDraft {
   name: string;
@@ -49,6 +55,7 @@ export function ImportCompetitorProductsDialog({
   const [normalizedUrl, setNormalizedUrl] = useState<string>("");
   const [drafts, setDrafts] = useState<ImportedDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<BillingError | null>(null);
   const [importMessage, setImportMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -57,6 +64,7 @@ export function ImportCompetitorProductsDialog({
     setStep("url");
     setDrafts([]);
     setError(null);
+    setBillingError(null);
     setImportMessage("");
   }
 
@@ -96,15 +104,10 @@ export function ImportCompetitorProductsDialog({
       );
       clearInterval(interval);
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Import failed");
-      }
-
-      const data = (await res.json()) as {
+      const data = await fetchJson<{
         products: Omit<ImportedDraft, "selected">[];
         websiteUrl: string;
-      };
+      }>(res);
 
       setNormalizedUrl(data.websiteUrl);
       setDrafts(
@@ -116,7 +119,11 @@ export function ImportCompetitorProductsDialog({
       setStep("review");
     } catch (err) {
       clearInterval(interval);
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
       setStep("url");
     }
   }
@@ -212,6 +219,12 @@ export function ImportCompetitorProductsDialog({
                       Paste the competitor&apos;s website. We&apos;ll extract their
                       products with the same pipeline used for your brand.
                     </p>
+                    {billingError && (
+                      <BillingErrorBanner
+                        error={billingError}
+                        onDismiss={() => setBillingError(null)}
+                      />
+                    )}
                     <div>
                       <label className="text-xs text-muted-foreground">
                         Website URL

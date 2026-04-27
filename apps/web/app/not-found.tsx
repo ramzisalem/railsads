@@ -10,7 +10,7 @@ export default function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
-          <Link href="/" className="btn-primary">
+          <Link href="/dashboard" className="btn-primary">
             Go to dashboard
           </Link>
         </div>

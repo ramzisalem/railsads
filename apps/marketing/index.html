@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F5F3EF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)" />
+
+    <title>RailsAds — AI Ads Creative Strategist</title>
+    <meta name="description" content="RailsAds is your AI ads creative strategist. Paste your website — get brand-aware, product-specific ad creatives in minutes. Built for ecommerce founders, performance marketers, and growth teams." />
+    <link rel="canonical" href="https://railsads.com/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="RailsAds — AI Ads Creative Strategist" />
+    <meta property="og:description" content="Your AI ads creative strategist. Brand context, ICPs, competitor intelligence and a chat-first studio — turning your products into high-converting creatives in minutes." />
+    <meta property="og:url" content="https://railsads.com/" />
+    <meta property="og:image" content="https://railsads.com/assets/og.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="RailsAds" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RailsAds — AI Ads Creative Strategist" />
+    <meta name="twitter:description" content="Your AI ads creative strategist. Paste your website. Get product-specific ad creatives in minutes." />
+    <meta name="twitter:image" content="https://railsads.com/assets/og.svg" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="apple-touch-icon" href="/assets/favicon.svg" />
+
+    <!-- Fonts: preconnect + display=swap for fast first paint -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..700;1,400..700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400..700;1,400..700&display=swap"
+    />
+
+    <link rel="stylesheet" href="/assets/styles.css" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "RailsAds",
+        "url": "https://railsads.com",
+        "logo": "https://railsads.com/assets/favicon.svg",
+        "sameAs": ["https://twitter.com/railsads"]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "RailsAds",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "url": "https://railsads.com",
+        "description": "AI ads creative strategist that turns ecommerce websites into product-specific ad creatives.",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Starter",
+            "price": "79",
+            "priceCurrency": "USD"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro",
+            "price": "119",
+            "priceCurrency": "USD"
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <a class="visually-hidden" href="#main" style="position:absolute;left:-9999px">Skip to content</a>
+
+    <!-- ============================ HEADER ============================ -->
+    <header class="site-header">
+      <div class="container">
+        <div class="nav">
+          <a class="brand" href="/" aria-label="RailsAds home">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span>RailsAds</span>
+          </a>
+
+          <nav class="nav-links" aria-label="Primary">
+            <a href="/features.html">Features</a>
+            <a href="/pricing.html">Pricing</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#faq">FAQ</a>
+          </nav>
+
+          <div class="nav-actions">
+            <button
+              class="theme-toggle"
+              type="button"
+              data-theme-toggle
+              aria-label="Toggle dark mode"
+              title="Toggle dark mode"
+            >
+              <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+              <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            </button>
+
+            <a href="/login" class="btn btn-ghost">Log in</a>
+            <a href="/signup" class="btn btn-primary">
+              Start free
+              <svg class="icon arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </a>
+
+            <button
+              class="menu-button"
+              type="button"
+              data-menu-button
+              aria-expanded="false"
+              aria-controls="mobile-menu"
+              aria-label="Open menu"
+            >
+              <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-menu" id="mobile-menu" data-mobile-menu data-open="false">
+        <nav aria-label="Mobile">
+          <a href="/features.html">Features</a>
+          <a href="/pricing.html">Pricing</a>
+          <a href="#how-it-works">How it works</a>
+          <a href="#faq">FAQ</a>
+          <a href="/login">Log in</a>
+          <a href="/signup" class="btn btn-primary">Start free</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ============================ HERO ============================ -->
+      <section class="hero">
+        <div class="container">
+          <div class="hero-inner">
+            <span class="pill reveal" data-revealed="false">
+              <span class="dot"></span>
+              New · Studio v2 — context-aware iteration
+            </span>
+            <h1 class="reveal" data-revealed="false">
+              Meet your AI ads<br />
+              <em>creative strategist.</em>
+            </h1>
+            <p class="lead reveal" data-revealed="false">
+              Paste your website. RailsAds learns your brand, products and audience —
+              then briefs, drafts and iterates on product-specific ad creatives with
+              you, side by side, in a calm chat-first studio.
+            </p>
+
+            <div class="hero-cta reveal" data-revealed="false">
+              <a href="/signup" class="btn btn-primary btn-lg">
+                Start free — 100 credits
+                <svg class="icon arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </a>
+              <a href="#studio" class="btn btn-secondary btn-lg">See the studio</a>
+            </div>
+
+            <div class="hero-meta reveal" data-revealed="false">
+              No credit card · Set up in under 2 minutes
+            </div>
+          </div>
+
+          <!-- Studio mockup with floating notification cards -->
+          <div class="mockup-frame reveal reveal-scale" data-revealed="false">
+            <!-- Floating cards orbiting the mockup -->
+            <div class="float-card float-tl" aria-hidden="true">
+              <span class="float-icon">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2 4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-5z" /></svg>
+              </span>
+              <div>
+                <div>Brand voice captured</div>
+                <div class="float-meta">From your homepage in 3.4s</div>
+              </div>
+            </div>
+            <div class="float-card float-tr sage" aria-hidden="true">
+              <span class="float-icon">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              </span>
+              <div>
+                <div>3 ICPs ready</div>
+                <div class="float-meta">Pains, triggers, objections</div>
+              </div>
+            </div>
+            <div class="float-card float-bl" aria-hidden="true">
+              <span class="float-icon">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              </span>
+              <div>
+                <div>+5 hooks generated</div>
+                <div class="float-meta">For "On-the-go athlete"</div>
+              </div>
+            </div>
+            <div class="float-card float-br sage" aria-hidden="true">
+              <span class="float-icon">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+              </span>
+              <div>
+                <div>Iteration saved</div>
+                <div class="float-meta">Thread updated · just now</div>
+              </div>
+            </div>
+
+          <div class="mockup" id="studio" aria-hidden="true">
+            <div class="mockup-bar">
+              <span class="dot" style="background:#FF6A00"></span>
+              <span class="dot" style="background:#9FB5AE"></span>
+              <span class="dot"></span>
+              <span class="url">railsads.com / studio · Portable Blender</span>
+            </div>
+            <div class="mockup-body">
+              <aside class="mockup-sidebar">
+                <div class="mockup-side-item">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                  </svg>
+                  Dashboard
+                </div>
+                <div class="mockup-side-item active">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  Creative Studio
+                </div>
+                <div class="mockup-side-item">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
+                  Products
+                </div>
+                <div class="mockup-side-item">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                  Competitors
+                </div>
+                <div class="mockup-side-item">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2 4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-5z" />
+                  </svg>
+                  Brand
+                </div>
+              </aside>
+
+              <div class="mockup-stage">
+                <div class="chat-row">
+                  <div class="chat-avatar">R</div>
+                  <div class="chat-bubble">
+                    Generated 3 hooks for <strong>Portable Blender</strong>, targeting
+                    <strong>Busy Professionals</strong>. Problem-aware, UGC tone.
+                  </div>
+                </div>
+
+                <div class="ad-card">
+                  <div>
+                    <div class="ad-section">
+                      <div class="label">Hook</div>
+                      <div class="hook">
+                        Skip the office smoothie line. Make yours in 60 seconds, anywhere.
+                      </div>
+                    </div>
+                    <div class="ad-section">
+                      <div class="label">Primary text</div>
+                      <p class="body">
+                        Your favorite smoothie shouldn't cost $9 and a 10-minute walk.
+                        Blend on the go — at the desk, in the car, before the gym.
+                      </p>
+                    </div>
+                    <div class="ad-actions">
+                      <span class="action-pill">
+                        <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                        Use this
+                      </span>
+                      <span class="action-pill">Improve</span>
+                      <span class="action-pill">Copy</span>
+                    </div>
+                  </div>
+                  <div class="visual" aria-hidden="true"></div>
+                </div>
+
+                <div class="chat-row user">
+                  <div class="chat-bubble">Make the hook more emotional, half the length.</div>
+                </div>
+
+                <div class="chat-row">
+                  <div class="chat-avatar">R</div>
+                  <div class="chat-bubble">Updated. Want me to try a problem → solution template too?</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ TRUST STRIP ============================ -->
+      <section class="trust">
+        <div class="container">
+          <p class="trust-text">Built for ecommerce teams that ship creative every week</p>
+          <div class="trust-marquee" aria-hidden="true">
+            <div class="trust-track">
+              <span class="mark">Lumen &amp; Co.</span>
+              <span class="mark">Northshore</span>
+              <span class="mark">Fieldnote</span>
+              <span class="mark">Pebble Goods</span>
+              <span class="mark">Forma Studio</span>
+              <span class="mark">Atlas Brew</span>
+              <span class="mark">Headland</span>
+              <span class="mark">Maven Co-op</span>
+              <span class="mark">Quill &amp; Pine</span>
+              <!-- duplicated for seamless loop -->
+              <span class="mark">Lumen &amp; Co.</span>
+              <span class="mark">Northshore</span>
+              <span class="mark">Fieldnote</span>
+              <span class="mark">Pebble Goods</span>
+              <span class="mark">Forma Studio</span>
+              <span class="mark">Atlas Brew</span>
+              <span class="mark">Headland</span>
+              <span class="mark">Maven Co-op</span>
+              <span class="mark">Quill &amp; Pine</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ PAIN ============================ -->
+      <section class="section pain-section">
+        <div class="container">
+          <div class="pain-grid">
+            <div class="pain-copy reveal" data-revealed="false">
+              <span class="eyebrow">The real problem</span>
+              <h2 class="pullquote" style="margin-top:1rem">
+                Generating ads is easy.<br />
+                Knowing <em>what works</em> is the hard part.
+              </h2>
+              <p class="lead" style="margin-top:1.25rem">
+                Most teams burn weeks on creative they can't explain. RailsAds reads
+                your brand, your audience and your category — then reasons about which
+                hooks, angles and visuals belong to <em>this</em> product. Every
+                generation starts smarter than the last.
+              </p>
+            </div>
+            <ul class="pain-list reveal" data-revealed="false">
+              <li class="pain-item">
+                <span class="pain-mark">01</span>
+                <div>
+                  <h3>Random outputs from blank prompts</h3>
+                  <p>You re-write the same brief into every tool. Each output forgets the last one. Nothing compounds.</p>
+                </div>
+              </li>
+              <li class="pain-item">
+                <span class="pain-mark">02</span>
+                <div>
+                  <h3>No memory between iterations</h3>
+                  <p>"Make it shorter" yesterday is gone tomorrow. Threads, products, and audiences live in screenshots and Notion docs.</p>
+                </div>
+              </li>
+              <li class="pain-item">
+                <span class="pain-mark">03</span>
+                <div>
+                  <h3>Generic copy that ignores your brand</h3>
+                  <p>The AI never read your site. So the hooks read like every other ad in your category — and convert like them too.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ STATS BAND ============================ -->
+      <section class="stats-band">
+        <div class="container">
+          <header class="section-head center reveal" data-revealed="false" style="margin-bottom:2rem">
+            <span class="eyebrow">By the numbers</span>
+            <h2 style="margin-top:0.5rem">Strategy at the speed of generation.</h2>
+          </header>
+          <div class="stats-grid reveal" data-revealed="false">
+            <div class="stat-cell">
+              <div class="stat-value">
+                <span data-counter data-target="14" data-suffix="">0</span>
+                <span class="stat-suffix">×</span>
+              </div>
+              <div class="stat-label">Faster to first creative</div>
+              <div class="stat-sub">vs. building briefs in docs &amp; prompting blank tools</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-value">
+                <span data-counter data-target="48" data-suffix="">0</span>
+                <span class="stat-suffix">k+</span>
+              </div>
+              <div class="stat-label">Hooks generated</div>
+              <div class="stat-sub">across product, ICP and competitor-aware threads</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-value">
+                <span data-counter data-target="92" data-suffix="">0</span>
+                <span class="stat-suffix">%</span>
+              </div>
+              <div class="stat-label">Brand-context accuracy</div>
+              <div class="stat-sub">measured against the operator's first-pass edit rate</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-value">
+                <span data-counter data-target="0" data-target-text="∞" data-suffix=""></span>
+              </div>
+              <div class="stat-label">Free iterations</div>
+              <div class="stat-sub">edit, rewrite, redirect — credits only spend once</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ FEATURES ============================ -->
+      <section class="section" id="features">
+        <div class="container">
+          <header class="section-head">
+            <span class="eyebrow">A full creative system</span>
+            <h2>Not a generator.<br />A creative workflow.</h2>
+            <p class="lead">
+              Every brand gets a workspace. Products organize the work, ICPs ground the
+              messaging, competitors sharpen the angle. Your AI sits in the middle —
+              context-aware, never starting from scratch.
+            </p>
+          </header>
+
+          <div class="grid grid-3">
+            <article class="feature-card reveal" data-revealed="false" style="--i:0">
+              <div class="feature-viz viz-brand" aria-hidden="true">
+                <div class="brand-swatches">
+                  <span style="background:#1c1c1c"></span>
+                  <span style="background:#ff6a00"></span>
+                  <span style="background:#9fb5ae"></span>
+                  <span style="background:#f5f3ef"></span>
+                  <span style="background:#c2a878"></span>
+                </div>
+                <div class="brand-tokens">
+                  <span>Voice · warm</span>
+                  <span>Tone · confident</span>
+                  <span>Audience · 28–44</span>
+                  <span>--font-serif</span>
+                </div>
+              </div>
+              <h3>Brand DNA, captured automatically</h3>
+              <p>
+                Paste your website and we extract your positioning, voice, palette and product
+                catalog. Edit anything inline — your brand becomes the foundation for every
+                generation.
+              </p>
+            </article>
+
+            <article class="feature-card reveal" data-revealed="false" style="--i:1">
+              <div class="feature-viz viz-products" aria-hidden="true">
+                <div class="pcard">
+                  <div class="pthumb"></div>
+                  <div class="pline"></div>
+                  <div class="pline sm"></div>
+                </div>
+                <div class="pcard" style="transform:translateY(-6px)">
+                  <div class="pthumb" style="background:linear-gradient(135deg,#9fb5ae,#7f9992)"></div>
+                  <div class="pline"></div>
+                  <div class="pline sm"></div>
+                </div>
+                <div class="pcard">
+                  <div class="pthumb" style="background:linear-gradient(135deg,#c2a878,#9d855a)"></div>
+                  <div class="pline"></div>
+                  <div class="pline sm"></div>
+                </div>
+              </div>
+              <h3>Product-centric structure</h3>
+              <p>
+                Real workflows start from a product, not a blank prompt. Each product owns its
+                ICPs, competitor signals, and creative threads — all in one place, all reusable.
+              </p>
+            </article>
+
+            <article class="feature-card reveal sage" data-revealed="false" style="--i:2">
+              <div class="feature-viz viz-icp" aria-hidden="true">
+                <div class="persona">
+                  <div class="persona-bubble">A</div>
+                  <span>The Athlete</span>
+                </div>
+                <div class="persona">
+                  <div class="persona-bubble">P</div>
+                  <span>The Parent</span>
+                </div>
+                <div class="persona">
+                  <div class="persona-bubble">C</div>
+                  <span>The Commuter</span>
+                </div>
+              </div>
+              <h3>ICPs you can actually use</h3>
+              <p>
+                Generate audience profiles with pains, desires, objections and triggers — then
+                target each one with creatives shaped specifically for it. No generic personas.
+              </p>
+            </article>
+
+            <article class="feature-card reveal sage" data-revealed="false" style="--i:3">
+              <div class="feature-viz viz-competitors" aria-hidden="true">
+                <div class="ad-thumb"></div>
+                <div class="ad-thumb"></div>
+                <div class="ad-thumb"></div>
+                <div class="ad-thumb"></div>
+                <div class="ad-thumb"></div>
+                <div class="ad-thumb"></div>
+              </div>
+              <h3>Competitor intelligence, mapped</h3>
+              <p>
+                Drop competitor ads. We extract recurring hooks, angles, emotional triggers and
+                visual patterns — and map them to your products so they're decision-ready.
+              </p>
+            </article>
+
+            <article class="feature-card reveal" data-revealed="false" style="--i:4">
+              <div class="feature-viz viz-studio" aria-hidden="true">
+                <div class="vbubble user">Hooks for the athlete ICP, emotional</div>
+                <div class="vbubble ai">5 hooks ready · structured for Meta &amp; TikTok</div>
+                <div class="vinput"></div>
+              </div>
+              <h3>Chat-first creative studio</h3>
+              <p>
+                One input box. Structured outputs — hooks, primary text, headlines, visuals.
+                Every iteration is free. Your context panel always tells you what's loaded.
+              </p>
+            </article>
+
+            <article class="feature-card reveal" data-revealed="false" style="--i:5">
+              <div class="feature-viz viz-threads" aria-hidden="true">
+                <div class="thread active">
+                  <span class="tdot"></span>
+                  <span class="tline"></span>
+                  <span class="ttime">2m</span>
+                </div>
+                <div class="thread">
+                  <span class="tdot"></span>
+                  <span class="tline"></span>
+                  <span class="ttime">1h</span>
+                </div>
+                <div class="thread">
+                  <span class="tdot"></span>
+                  <span class="tline"></span>
+                  <span class="ttime">3d</span>
+                </div>
+              </div>
+              <h3>Persistent threads</h3>
+              <p>
+                Open a creative tomorrow exactly where you left it — same product, same ICP,
+                same direction. Iterate forever. Iteration never costs credits.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ HOW IT WORKS ============================ -->
+      <section class="section" id="how-it-works" style="background:var(--bg-2)">
+        <div class="container">
+          <header class="section-head center">
+            <span class="eyebrow">How it works</span>
+            <h2>From website to ad in four moves.</h2>
+            <p class="lead">
+              No long onboarding. No empty prompts. By the time you sit down in the studio,
+              the system already knows enough to make something useful.
+            </p>
+          </header>
+
+          <ol class="steps reveal" data-revealed="false">
+            <li class="step">
+              <div class="step-viz" aria-hidden="true">
+                <span class="sv-pill">https://yourbrand.com</span>
+                <span class="sv-dot"></span>
+              </div>
+              <span class="step-number">01</span>
+              <h3>Paste your website</h3>
+              <p>
+                We extract brand identity, products, colors, and positioning. Review and edit —
+                the data is yours.
+              </p>
+            </li>
+            <li class="step">
+              <div class="step-viz" aria-hidden="true">
+                <span class="sv-pill">Product</span>
+                <span class="sv-pill">ICPs</span>
+                <span class="sv-pill">Angle</span>
+              </div>
+              <span class="step-number">02</span>
+              <h3>Pick a product</h3>
+              <p>
+                Each product is a hub. Generate ICPs, attach competitor signals, choose a
+                template and angle.
+              </p>
+            </li>
+            <li class="step">
+              <div class="step-viz" aria-hidden="true">
+                <span class="sv-bar fill"></span>
+                <span class="sv-pill live">Generating</span>
+              </div>
+              <span class="step-number">03</span>
+              <h3>Generate &amp; iterate</h3>
+              <p>
+                Studio opens with context already loaded. Hooks, primary text, headlines and
+                visuals appear as structured blocks.
+              </p>
+            </li>
+            <li class="step">
+              <div class="step-viz" aria-hidden="true">
+                <span class="sv-pill">Make it shorter</span>
+                <span class="sv-pill">More emotional</span>
+              </div>
+              <span class="step-number">04</span>
+              <h3>Refine forever</h3>
+              <p>
+                Iteration is free and persistent. "Make it shorter." "More emotional." "Try UGC
+                tone." Every change saved in a thread.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ============================ OUTPUT GALLERY ============================ -->
+      <section class="section">
+        <div class="container">
+          <header class="section-head center">
+            <span class="eyebrow">Output quality</span>
+            <h2>What your strategist produces.</h2>
+            <p class="lead">
+              Every brief returns structured, ready-to-ship blocks — never a wall of text.
+              Hooks, primary copy, headlines, visual briefs, and ICP-targeted angle
+              variations, all aware of each other.
+            </p>
+          </header>
+
+          <div class="outputs reveal" data-revealed="false">
+            <article class="output-card output-card-tall">
+              <span class="output-tag">Hook · 5 variations</span>
+              <ul class="output-list">
+                <li>"Smoothies in 90 seconds — wherever the day takes you."</li>
+                <li>"Coffee shop blender. Backpack-sized."</li>
+                <li>"Your favorite shake. Without the $9 line."</li>
+                <li>"Blend. Sip. Go. Repeat."</li>
+                <li>"Recovery shake at the trailhead, not the kitchen."</li>
+              </ul>
+              <p class="output-meta">Generated for ICP "On-the-go athlete"</p>
+            </article>
+
+            <article class="output-card output-card-half">
+              <span class="output-tag">Headline</span>
+              <p class="output-h">The cordless smoothie maker built for movers.</p>
+              <p class="output-meta">Tone · confident, plain-spoken</p>
+            </article>
+
+            <article class="output-card output-card-half">
+              <span class="output-tag">Visual brief</span>
+              <div class="output-visual" aria-hidden="true">
+                <span class="output-visual-pill">Lifestyle · Outdoor · Warm</span>
+              </div>
+              <p class="output-h">Hand pouring a berry smoothie at sunrise, blender visible mid-frame, soft golden side-light.</p>
+            </article>
+
+            <article class="output-card output-card-half">
+              <span class="output-tag">Primary text</span>
+              <p class="output-body">
+                Your favorite smoothie shouldn't cost $9 and a 10-minute walk.
+                Blend on the go — at the desk, in the car, before the gym.
+                One charge. Six servings. Zero excuses.
+              </p>
+            </article>
+
+            <article class="output-card output-card-half">
+              <span class="output-tag">Angle · 4 variations</span>
+              <ul class="output-angles">
+                <li><span class="angle-dot" style="background:var(--primary)"></span> Time-saving simplicity</li>
+                <li><span class="angle-dot" style="background:var(--sage, #9FB5AE)"></span> Pain-free routine</li>
+                <li><span class="angle-dot" style="background:#C2A878"></span> Confidence &amp; self-image</li>
+                <li><span class="angle-dot" style="background:#7E8FA6"></span> Natural, clean ingredients</li>
+              </ul>
+            </article>
+
+            <article class="output-card output-card-wide">
+              <span class="output-tag">ICP · Buying triggers</span>
+              <div class="output-pills">
+                <span>Convenience over price</span>
+                <span>Health-curious, not hardcore</span>
+                <span>Buys for the morning routine</span>
+                <span>Influenced by gym creators</span>
+                <span>Sticks with what works</span>
+              </div>
+              <p class="output-meta">Auto-generated from product + brand context</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ DIFFERENTIATOR ============================ -->
+      <section class="section">
+        <div class="container">
+          <div
+            style="display:grid;gap:3rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:center"
+          >
+            <div class="reveal" data-revealed="false">
+              <span class="eyebrow">Why we exist</span>
+              <h2 class="pullquote" style="margin-top:1rem">
+                Most tools <em>generate</em> ads.<br />
+                We help you <em>build</em> them.
+              </h2>
+            </div>
+            <div class="diff-list reveal" data-revealed="false">
+              <div class="diff-row">
+                <span class="check">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <p>
+                  <strong>Context over prompts.</strong>
+                  We compose generations from your brand, product, ICP, template and competitor
+                  signals — automatically.
+                </p>
+              </div>
+              <div class="diff-row">
+                <span class="check">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <p>
+                  <strong>Iteration over generation.</strong>
+                  The first output is rarely the right one. Free, unlimited refinement is the
+                  whole point.
+                </p>
+              </div>
+              <div class="diff-row">
+                <span class="check">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <p>
+                  <strong>Structure over chaos.</strong>
+                  Outputs render as hooks, primary text, headlines and visuals — never a wall
+                  of text you have to clean up.
+                </p>
+              </div>
+              <div class="diff-row">
+                <span class="check">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
+                <p>
+                  <strong>Memory over re-prompting.</strong>
+                  Threads persist. Reopen a creative tomorrow and pick up exactly where you
+                  left off.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ COMPARISON ============================ -->
+      <section class="section" style="background:var(--bg-2)">
+        <div class="container">
+          <header class="section-head center">
+            <span class="eyebrow">Comparison</span>
+            <h2>RailsAds vs. prompt-only AI tools.</h2>
+            <p class="lead">
+              Most AI writers stare at a blank prompt and guess. A creative strategist
+              starts from your context and reasons toward what should work.
+            </p>
+          </header>
+
+          <div class="comparison reveal" data-revealed="false">
+            <div class="comparison-row comparison-head">
+              <span>Category</span>
+              <span class="comparison-us">RailsAds</span>
+              <span>Typical AI tool</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Strategy</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Reads your brand, products and audience first
+              </span>
+              <span class="comparison-them">Generates fast — thinks little</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Audience depth</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Psychology-grounded ICPs with pains, triggers, objections
+              </span>
+              <span class="comparison-them">Basic demographic targeting</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Creative direction</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Structured hooks, headlines, body and visual briefs
+              </span>
+              <span class="comparison-them">A wall of variants you have to clean up</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Competitive edge</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Competitor ad analysis, mapped to your products
+              </span>
+              <span class="comparison-them">No external signal at all</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Memory</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Persistent threads — iterate forever, never re-prompt
+              </span>
+              <span class="comparison-them">Each chat starts from zero</span>
+            </div>
+
+            <div class="comparison-row">
+              <span class="comparison-cat">Cost of iteration</span>
+              <span class="comparison-us">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                Free unlimited refinement
+              </span>
+              <span class="comparison-them">Every retry burns tokens or credits</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ TESTIMONIAL ============================ -->
+      <section class="section-tight">
+        <div class="container">
+          <div class="quote reveal" data-revealed="false">
+            <span class="avatar">M</span>
+            <div>
+              <blockquote>
+                &ldquo;We replaced three tools and a freelancer with RailsAds. Our team went from
+                10 creatives a week to 40, and they're actually grounded in our brand.&rdquo;
+              </blockquote>
+              <cite>Maya R. — Head of Growth, ecommerce SaaS</cite>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ PRICING ============================ -->
+      <section class="section" id="pricing">
+        <div class="container">
+          <header class="section-head center">
+            <span class="eyebrow">Pricing</span>
+            <h2>Simple plans.<br />You only pay to create.</h2>
+            <p class="lead">
+              Iteration is always free. You only spend credits when you generate something new.
+              Start with a 100-credit trial — no card.
+            </p>
+          </header>
+
+          <div class="pricing-grid">
+            <div class="plan reveal" data-revealed="false">
+              <div>
+                <div class="plan-name">Starter</div>
+                <div class="plan-price">
+                  <span class="amount">$79</span>
+                  <span class="period">/ month</span>
+                </div>
+                <p class="creatives-hint">2,500 credits · ~150 creatives</p>
+              </div>
+              <p class="summary">
+                For solo founders and small teams shipping their first scaled creative cycles.
+              </p>
+              <ul>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  1 brand workspace
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Creative studio &amp; threads
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  ICP &amp; image generation
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Free unlimited iteration
+                </li>
+              </ul>
+              <a href="/signup?plan=starter" class="btn btn-secondary">Start with Starter</a>
+            </div>
+
+            <div class="plan featured reveal" data-revealed="false">
+              <span class="plan-tag">Most popular</span>
+              <div>
+                <div class="plan-name" style="color:var(--primary)">Pro</div>
+                <div class="plan-price">
+                  <span class="amount">$119</span>
+                  <span class="period">/ month</span>
+                </div>
+                <p class="creatives-hint">5,000 credits · ~300 creatives</p>
+              </div>
+              <p class="summary">
+                For performance marketers and agencies running multiple brands at speed.
+              </p>
+              <ul>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  3 brand workspaces
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Competitor insights &amp; mapping
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Priority generation queue
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Everything in Starter
+                </li>
+              </ul>
+              <a href="/signup?plan=pro" class="btn btn-primary">Start with Pro</a>
+            </div>
+
+            <div class="plan reveal" data-revealed="false">
+              <div>
+                <div class="plan-name">Enterprise</div>
+                <div class="plan-price">
+                  <span class="amount">Custom</span>
+                </div>
+                <p class="creatives-hint">10,000+ credits · unlimited brands</p>
+              </div>
+              <p class="summary">
+                For teams operating dozens of brands or needing dedicated creative volume.
+              </p>
+              <ul>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Unlimited brand workspaces
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Custom templates &amp; tone
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  Dedicated support &amp; SLA
+                </li>
+                <li>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                  SOC2-aligned security
+                </li>
+              </ul>
+              <a href="mailto:hello@railsads.com" class="btn btn-secondary">Talk to us</a>
+            </div>
+          </div>
+
+          <p
+            style="text-align:center;margin-top:2rem;font-size:0.85rem;color:var(--muted-2)"
+          >
+            Annual billing available · cancel anytime ·
+            <a href="/pricing.html" style="color:var(--ink-2);text-decoration:underline">see full pricing →</a>
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================ FAQ ============================ -->
+      <section class="section" id="faq" style="background:var(--bg-2)">
+        <div class="container">
+          <header class="section-head center">
+            <span class="eyebrow">FAQ</span>
+            <h2>Everything you might be wondering.</h2>
+          </header>
+
+          <div class="faq">
+            <details>
+              <summary>
+                Is RailsAds another AI ad generator?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                No. RailsAds is a workspace. Each brand has products, ICPs, competitors and
+                threads. The AI doesn't start from a blank prompt — it generates from a
+                composed context. The result is creative that's grounded, not generic.
+              </p>
+            </details>
+
+            <details>
+              <summary>
+                What counts as a "creative"?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                A full creative — hooks, primary text, headlines, optional visual prompt — costs
+                15 credits. Generating an image costs 25 credits. ICP generation: 5 credits.
+                Competitor analysis: 10. Refining what's already on screen costs nothing.
+              </p>
+            </details>
+
+            <details>
+              <summary>
+                Do I need to bring my own ad data?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                No. You only need a website. We extract brand identity and products
+                automatically. Adding competitor screenshots is optional — but it's where
+                most of the strategic edge comes from.
+              </p>
+            </details>
+
+            <details>
+              <summary>
+                Can I edit a creative I made yesterday?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                Yes. Every creative lives in a thread tied to its product, ICP, template and
+                angle. Reopen the thread and the studio restores everything — context panel,
+                history, and current creative state.
+              </p>
+            </details>
+
+            <details>
+              <summary>
+                What does a free trial give me?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                100 credits, no card required. That's enough to import a website, generate
+                ICPs, and produce a handful of full creatives. After that, choose a plan.
+              </p>
+            </details>
+
+            <details>
+              <summary>
+                Is my data safe?
+                <span class="toggle" aria-hidden="true">
+                  <svg class="icon" style="width:14px;height:14px;stroke-width:2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </summary>
+              <p class="answer">
+                Your brand data, products, threads and creatives stay in your workspace. We
+                never train models on your content. Enterprise plans include SOC2-aligned
+                controls and a DPA.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ CTA BANNER ============================ -->
+      <section class="section">
+        <div class="container">
+          <div class="cta-banner reveal" data-revealed="false">
+            <h2>Understand your brand first.<br />Then ship creatives that <em>convert.</em></h2>
+            <p>
+              Paste a URL. Watch your brand, products and audience materialize.
+              Generate your first creative in under five minutes — no card required.
+            </p>
+            <div class="flex gap-3" style="flex-wrap:wrap">
+              <a href="/signup" class="btn btn-primary btn-lg">
+                Start free
+                <svg class="icon arrow" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </a>
+              <a href="/pricing.html" class="btn btn-secondary btn-lg">See pricing</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============================ FOOTER ============================ -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a class="brand" href="/" aria-label="RailsAds home">
+              <span class="brand-mark" aria-hidden="true"></span>
+              <span>RailsAds</span>
+            </a>
+            <p>
+              Your AI ads creative strategist for ecommerce. Calm, structured, persistent.
+            </p>
+          </div>
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="/features.html">Features</a></li>
+              <li><a href="/pricing.html">Pricing</a></li>
+              <li><a href="#how-it-works">How it works</a></li>
+              <li><a href="/signup">Start free</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <ul>
+              <li><a href="#faq">FAQ</a></li>
+              <li><a href="mailto:hello@railsads.com">Contact</a></li>
+              <li><a href="https://twitter.com/railsads">Twitter</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="/privacy.html">Privacy</a></li>
+              <li><a href="/terms.html">Terms</a></li>
+              <li><a href="mailto:hello@railsads.com">hello@railsads.com</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <span>© <span data-year>2026</span> RailsAds. All rights reserved.</span>
+          <span>Made for ecommerce teams that ship.</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/assets/site.js" defer></script>
+  </body>
+</html>

@@ -32,7 +32,7 @@ export async function signIn(formData: FormData) {
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirect") as string) || "/";
+  const redirectTo = (formData.get("redirect") as string) || "/dashboard";
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -44,10 +44,9 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  // Only allow relative paths to prevent open redirect
   const safePath = redirectTo.startsWith("/") && !redirectTo.startsWith("//")
     ? redirectTo
-    : "/";
+    : "/dashboard";
   redirect(safePath);
 }
 

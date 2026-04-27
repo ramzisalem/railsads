@@ -5,6 +5,8 @@ import { getStripe, PLAN_CREDITS } from "@/lib/billing/stripe";
 import { grantMonthlyCredits } from "@/lib/billing/credits";
 import { mapStripeStatus } from "@/lib/billing/stripe-status";
 
+type Admin = ReturnType<typeof createAdminClient>;
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -39,6 +41,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
+  // Idempotency — drop replayed events.
   const { data: existingEvent } = await admin
     .from("webhook_events")
     .select("id")
@@ -60,17 +63,41 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case "checkout.session.completed":
-        await handleCheckoutCompleted(admin, event.data.object as Stripe.Checkout.Session);
+        await handleCheckoutCompleted(
+          admin,
+          event.data.object as Stripe.Checkout.Session
+        );
         break;
+
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+        await handleSubscriptionUpserted(
+          admin,
+          event.data.object as Stripe.Subscription
+        );
+        break;
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(
+          admin,
+          event.data.object as Stripe.Subscription
+        );
+        break;
+
+      // Stripe emits both `invoice.paid` and `invoice.payment_succeeded`
+      // for the same successful payment. Handle both for safety.
       case "invoice.paid":
+      case "invoice.payment_succeeded":
         await handleInvoicePaid(admin, event.data.object as Stripe.Invoice);
         break;
-      case "customer.subscription.updated":
-        await handleSubscriptionUpdated(admin, event.data.object as Stripe.Subscription);
+
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(
+          admin,
+          event.data.object as Stripe.Invoice
+        );
         break;
-      case "customer.subscription.deleted":
-        await handleSubscriptionDeleted(admin, event.data.object as Stripe.Subscription);
-        break;
+
       default:
         break;
     }
@@ -85,11 +112,15 @@ export async function POST(request: NextRequest) {
       .from("webhook_events")
       .update({
         status: "failed",
-        error_message: error instanceof Error ? error.message : "Unknown error",
+        error_message:
+          error instanceof Error ? error.message : "Unknown error",
       })
       .eq("event_id", event.id);
 
-    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook handler failed" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ received: true });
@@ -106,8 +137,49 @@ function getSubPeriod(subscription: Stripe.Subscription): {
   };
 }
 
+async function resolveBrandIdAndPlanCode(
+  admin: Admin,
+  subscription: Stripe.Subscription
+): Promise<{ brandId: string | null; planCode: string | null }> {
+  let brandId =
+    (subscription.metadata?.brand_id as string | undefined) ?? null;
+  let planCode =
+    (subscription.metadata?.plan_code as string | undefined) ?? null;
+
+  if (!brandId) {
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer?.id;
+    if (customerId) {
+      const { data: bc } = await admin
+        .from("billing_customers")
+        .select("brand_id")
+        .eq("stripe_customer_id", customerId)
+        .single();
+      brandId = bc?.brand_id ?? null;
+    }
+  }
+
+  if (!planCode) {
+    const priceId = subscription.items.data[0]?.price?.id;
+    if (priceId) {
+      planCode = inferPlanCodeFromPriceId(priceId);
+    }
+  }
+
+  return { brandId, planCode };
+}
+
+function inferPlanCodeFromPriceId(priceId: string): string | null {
+  if (priceId === process.env.STRIPE_PRICE_STARTER) return "starter";
+  if (priceId === process.env.STRIPE_PRICE_PRO) return "pro";
+  if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) return "enterprise";
+  return null;
+}
+
 async function handleCheckoutCompleted(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   session: Stripe.Checkout.Session
 ) {
   if (session.mode !== "subscription" || !session.subscription) return;
@@ -124,11 +196,100 @@ async function handleCheckoutCompleted(
     session.subscription as string
   );
 
-  const { data: plan } = await admin
-    .from("plans")
+  await upsertSubscription(admin, brandId, planCode, subscription);
+
+  const { data: sub } = await admin
+    .from("subscriptions")
     .select("id")
-    .eq("code", planCode)
+    .eq("brand_id", brandId)
     .single();
+
+  if (sub) {
+    const { periodStart, periodEnd } = getSubPeriod(subscription);
+    await grantMonthlyCredits(
+      admin,
+      brandId,
+      planCode,
+      sub.id,
+      new Date(periodStart * 1000),
+      new Date(periodEnd * 1000)
+    );
+
+    await upsertRollupGranted(
+      admin,
+      brandId,
+      getMonthKey(new Date()),
+      PLAN_CREDITS[planCode] ?? 0
+    );
+  }
+}
+
+async function handleSubscriptionUpserted(
+  admin: Admin,
+  subscription: Stripe.Subscription
+) {
+  const { brandId, planCode } = await resolveBrandIdAndPlanCode(
+    admin,
+    subscription
+  );
+
+  if (!brandId) {
+    console.warn(
+      `[webhook] subscription ${subscription.id} has no resolvable brand_id`
+    );
+    return;
+  }
+
+  await upsertSubscription(admin, brandId, planCode, subscription);
+
+  // For brand-new subscriptions that didn't go through our checkout endpoint,
+  // make sure the first month of credits is granted.
+  if (planCode) {
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("id")
+      .eq("brand_id", brandId)
+      .single();
+
+    if (sub) {
+      const { periodStart, periodEnd } = getSubPeriod(subscription);
+      await grantMonthlyCredits(
+        admin,
+        brandId,
+        planCode,
+        sub.id,
+        new Date(periodStart * 1000),
+        new Date(periodEnd * 1000)
+      );
+    }
+  }
+}
+
+async function handleSubscriptionDeleted(
+  admin: Admin,
+  subscription: Stripe.Subscription
+) {
+  await admin
+    .from("subscriptions")
+    .update({ status: "canceled", cancel_at_period_end: false })
+    .eq("stripe_subscription_id", subscription.id);
+}
+
+async function upsertSubscription(
+  admin: Admin,
+  brandId: string,
+  planCode: string | null,
+  subscription: Stripe.Subscription
+) {
+  let planId: string | null = null;
+  if (planCode) {
+    const { data: plan } = await admin
+      .from("plans")
+      .select("id")
+      .eq("code", planCode)
+      .single();
+    planId = plan?.id ?? null;
+  }
 
   const priceId = subscription.items.data[0]?.price?.id ?? null;
   const { periodStart, periodEnd } = getSubPeriod(subscription);
@@ -136,7 +297,7 @@ async function handleCheckoutCompleted(
   await admin.from("subscriptions").upsert(
     {
       brand_id: brandId,
-      plan_id: plan?.id ?? null,
+      plan_id: planId,
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
       status: mapStripeStatus(subscription.status),
@@ -149,35 +310,10 @@ async function handleCheckoutCompleted(
     },
     { onConflict: "brand_id" }
   );
-
-  const { data: sub } = await admin
-    .from("subscriptions")
-    .select("id")
-    .eq("brand_id", brandId)
-    .single();
-
-  if (sub) {
-    await grantMonthlyCredits(
-      admin,
-      brandId,
-      planCode,
-      sub.id,
-      new Date(periodStart * 1000),
-      new Date(periodEnd * 1000)
-    );
-
-    await upsertRollupGranted(admin, brandId, getMonthKey(new Date()), PLAN_CREDITS[planCode] ?? 0);
-  }
 }
 
-async function handleInvoicePaid(
-  admin: ReturnType<typeof createAdminClient>,
-  invoice: Stripe.Invoice
-) {
-  const subRef = invoice.parent?.subscription_details?.subscription;
-  const stripeSubId =
-    typeof subRef === "string" ? subRef : subRef?.id ?? null;
-
+async function handleInvoicePaid(admin: Admin, invoice: Stripe.Invoice) {
+  const stripeSubId = extractStripeSubId(invoice);
   if (!stripeSubId) return;
 
   const { data: sub } = await admin
@@ -233,66 +369,71 @@ async function handleInvoicePaid(
         new Date(periodEnd * 1000)
       );
 
-      await upsertRollupGranted(admin, sub.brand_id, getMonthKey(new Date(periodStart * 1000)), PLAN_CREDITS[planCode] ?? 0);
+      await upsertRollupGranted(
+        admin,
+        sub.brand_id,
+        getMonthKey(new Date(periodStart * 1000)),
+        PLAN_CREDITS[planCode] ?? 0
+      );
     }
   }
 }
 
-async function handleSubscriptionUpdated(
-  admin: ReturnType<typeof createAdminClient>,
-  subscription: Stripe.Subscription
+async function handleInvoicePaymentFailed(
+  admin: Admin,
+  invoice: Stripe.Invoice
 ) {
+  const stripeSubId = extractStripeSubId(invoice);
+  if (!stripeSubId) return;
+
   const { data: sub } = await admin
     .from("subscriptions")
     .select("id, brand_id")
-    .eq("stripe_subscription_id", subscription.id)
+    .eq("stripe_subscription_id", stripeSubId)
     .single();
 
   if (!sub) return;
 
-  const newPlanCode = subscription.metadata?.plan_code;
-
-  let planId: string | null = null;
-  if (newPlanCode) {
-    const { data: plan } = await admin
-      .from("plans")
-      .select("id")
-      .eq("code", newPlanCode)
-      .single();
-    planId = plan?.id ?? null;
-  }
-
-  const priceId = subscription.items.data[0]?.price?.id ?? null;
-  const { periodStart, periodEnd } = getSubPeriod(subscription);
-
+  // Stripe will eventually emit `customer.subscription.updated` with the new
+  // status, but we proactively flag past_due so the gate kicks in immediately.
   await admin
     .from("subscriptions")
-    .update({
-      plan_id: planId,
-      stripe_price_id: priceId,
-      status: mapStripeStatus(subscription.status),
-      current_period_start: new Date(periodStart * 1000).toISOString(),
-      current_period_end: new Date(periodEnd * 1000).toISOString(),
-      cancel_at_period_end: subscription.cancel_at_period_end,
-      trial_end: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000).toISOString()
-        : null,
-    })
+    .update({ status: "past_due" })
     .eq("id", sub.id);
+
+  if (invoice.id) {
+    await admin.from("billing_invoices").upsert(
+      {
+        brand_id: sub.brand_id,
+        subscription_id: sub.id,
+        stripe_invoice_id: invoice.id,
+        amount_due_cents: invoice.amount_due,
+        amount_paid_cents: invoice.amount_paid,
+        currency: invoice.currency,
+        status: invoice.status ?? "open",
+        hosted_invoice_url: invoice.hosted_invoice_url,
+        invoice_pdf_url: invoice.invoice_pdf,
+        period_start: invoice.period_start
+          ? new Date(invoice.period_start * 1000).toISOString()
+          : null,
+        period_end: invoice.period_end
+          ? new Date(invoice.period_end * 1000).toISOString()
+          : null,
+      },
+      { onConflict: "stripe_invoice_id" }
+    );
+  }
 }
 
-async function handleSubscriptionDeleted(
-  admin: ReturnType<typeof createAdminClient>,
-  subscription: Stripe.Subscription
-) {
-  await admin
-    .from("subscriptions")
-    .update({ status: "canceled", cancel_at_period_end: false })
-    .eq("stripe_subscription_id", subscription.id);
+function extractStripeSubId(invoice: Stripe.Invoice): string | null {
+  const subRef = invoice.parent?.subscription_details?.subscription;
+  if (typeof subRef === "string") return subRef;
+  if (subRef && typeof subRef === "object" && "id" in subRef) return subRef.id;
+  return null;
 }
 
 async function upsertRollupGranted(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   brandId: string,
   month: string,
   creditsGranted: number

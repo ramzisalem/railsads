@@ -240,7 +240,7 @@ export async function deleteBrand(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect(nextBrandId ? "/" : "/onboarding");
+  redirect(nextBrandId ? "/dashboard" : "/onboarding");
 }
 
 /**

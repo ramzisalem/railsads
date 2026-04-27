@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { ThemeAppearance } from "@/components/settings/theme-appearance";
-import { BillingSection } from "@/components/billing/billing-section";
+import { BillingLinkCard } from "@/components/settings/billing-link-card";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getCurrentBrand } from "@/lib/auth/get-current-brand";
 import { getBillingOverview } from "@/lib/billing/queries";
@@ -16,13 +16,13 @@ export default async function SettingsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        description="Your account, plan, and preferences. Brand identity lives under Brand."
+        description="Your account and preferences. Brand identity lives under Brand, billing under Billing."
       />
 
       <div className="max-w-2xl space-y-6">
         <ProfileForm fullName={user.fullName} email={user.email} />
 
-        <BillingSection billing={billing} />
+        <BillingLinkCard billing={billing} />
 
         <ThemeAppearance />
 

@@ -8,15 +8,15 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "RailsAds — AI ads for ecommerce brands",
+    default: "RailsAds — AI Ads Creative Strategist",
     template: "%s | RailsAds",
   },
   description:
-    "Create high-converting ad creatives in minutes. AI-powered brand and ad platform for ecommerce — from import to studio-ready ads.",
+    "Your AI ads creative strategist. RailsAds turns brand context, products and audiences into high-converting ad creatives in minutes.",
   openGraph: {
-    title: "RailsAds — AI ads for ecommerce brands",
+    title: "RailsAds — AI Ads Creative Strategist",
     description:
-      "Create high-converting ad creatives in minutes. AI-powered brand and ad platform for ecommerce brands.",
+      "Your AI ads creative strategist. RailsAds turns brand context, products and audiences into high-converting ad creatives in minutes.",
     url: appUrl,
     siteName: "RailsAds",
     locale: "en_US",
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "RailsAds — AI ads for ecommerce brands",
+    title: "RailsAds — AI Ads Creative Strategist",
     description:
-      "Create high-converting ad creatives in minutes. AI-powered brand and ad platform for ecommerce brands.",
+      "Your AI ads creative strategist. RailsAds turns brand context, products and audiences into high-converting ad creatives in minutes.",
   },
   robots: {
     index: true,

@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
       customer: stripeCustomerId,
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${origin}/settings?billing=success`,
-      cancel_url: `${origin}/settings?billing=canceled`,
+      success_url: `${origin}/billing?status=success`,
+      cancel_url: `${origin}/billing?status=canceled`,
       subscription_data: {
         metadata: {
           brand_id: brandId,

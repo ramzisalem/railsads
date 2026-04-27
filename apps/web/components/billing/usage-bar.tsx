@@ -4,6 +4,8 @@ export interface UsageInfo {
   creditsGranted: number;
   creditsUsed: number;
   creditsRemaining: number;
+  /** Plan or trial allowance — use this as the bar denominator. */
+  creditsLimit?: number;
   creativeGenerations: number;
   imageGenerations: number;
   icpGenerations: number;
@@ -16,14 +18,12 @@ interface UsageBarProps {
 }
 
 export function UsageBar({ usage }: UsageBarProps) {
-  const totalCreatives = creditsToCreatives(usage.creditsGranted);
+  const denominator = Math.max(usage.creditsLimit ?? usage.creditsGranted, 0);
+  const totalCreatives = creditsToCreatives(denominator);
   const usedCreatives = creditsToCreatives(usage.creditsUsed);
   const percentage =
-    usage.creditsGranted > 0
-      ? Math.min(
-          Math.round((usage.creditsUsed / usage.creditsGranted) * 100),
-          100
-        )
+    denominator > 0
+      ? Math.min(Math.round((usage.creditsUsed / denominator) * 100), 100)
       : 0;
 
   const isWarning = percentage >= 80;

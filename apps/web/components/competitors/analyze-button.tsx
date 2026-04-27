@@ -7,6 +7,12 @@ import type {
   LinkedProductOption,
   NewAdsByScope,
 } from "@/lib/competitors/queries";
+import {
+  BillingError,
+  fetchJson,
+  isBillingError,
+} from "@/lib/billing/client";
+import { BillingErrorBanner } from "@/components/billing/billing-error-banner";
 
 interface AnalyzeButtonProps {
   brandId: string;
@@ -35,6 +41,7 @@ export function AnalyzeButton({
 }: AnalyzeButtonProps) {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<BillingError | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedScope, setSelectedScope] = useState<ScopeChoice>({
     productId: null,
@@ -62,6 +69,7 @@ export function AnalyzeButton({
   async function handleAnalyze(scope: ScopeChoice, mode: "incremental" | "all") {
     setAnalyzing(true);
     setError(null);
+    setBillingError(null);
     setMenuOpen(false);
     setSelectedScope(scope);
 
@@ -77,14 +85,14 @@ export function AnalyzeButton({
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Analysis failed");
-      }
-
+      await fetchJson(res);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setError(err instanceof Error ? err.message : "Analysis failed");
+      }
     } finally {
       setAnalyzing(false);
     }
@@ -122,6 +130,13 @@ export function AnalyzeButton({
 
   return (
     <div className="relative flex items-center gap-3">
+      {billingError && (
+        <BillingErrorBanner
+          error={billingError}
+          onDismiss={() => setBillingError(null)}
+          className="hidden lg:flex"
+        />
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
 
       <div className="flex items-stretch overflow-hidden rounded-xl">
