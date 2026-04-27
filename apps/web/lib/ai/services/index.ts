@@ -34,5 +34,12 @@ export type { ImportBrandParams, ImportBrandResult } from "./brand-import";
 export { enrichProductImages } from "./enrich-product-images";
 export type { EnrichProductImagesOptions } from "./enrich-product-images";
 
+export { importCompetitorProducts } from "./competitor-product-import";
+export type {
+  ImportCompetitorProductsParams,
+  ImportCompetitorProductsResult,
+  CompetitorProductImportItem,
+} from "./competitor-product-import";
+
 export { generateImage } from "./image-generation";
 export type { GenerateImageParams, GenerateImageResult } from "./image-generation";

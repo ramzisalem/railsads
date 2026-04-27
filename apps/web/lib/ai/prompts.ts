@@ -65,6 +65,11 @@ export interface TemplateContext {
   key: string;
   sections: string[];
   guidelines: string;
+  /** One-line layout description (from `structure.layout`). */
+  layout?: string;
+  /** Public URL of the template preview image — passed to gpt-image-1
+   *  alongside product references so the layout becomes a visual anchor. */
+  thumbnail_url?: string | null;
 }
 
 export interface CompetitorAdContext {
@@ -167,9 +172,15 @@ function formatIcp(icp: IcpContext): string {
 
 function formatTemplate(template: TemplateContext): string {
   const lines = [`Template: ${template.name} (${template.key})`];
+  if (template.layout) lines.push(`Layout: ${template.layout}`);
   if (template.sections.length)
     lines.push(`Sections: ${template.sections.join(" → ")}`);
   if (template.guidelines) lines.push(`Guidelines: ${template.guidelines}`);
+  if (template.thumbnail_url) {
+    lines.push(
+      `A visual reference for this template layout is attached as an input image. Reproduce the layout structure (positioning of headline, product, callouts, etc.) but render OUR product, palette, and copy.`
+    );
+  }
   return lines.join("\n");
 }
 

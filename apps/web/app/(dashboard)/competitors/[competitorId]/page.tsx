@@ -21,8 +21,15 @@ export default async function CompetitorDetailPage({
 
   if (!data) notFound();
 
-  const { competitor, ads, insights, linkedProducts, allProducts, newAdCounts } =
-    data;
+  const {
+    competitor,
+    ads,
+    insights,
+    linkedProducts,
+    allProducts,
+    newAdCounts,
+    competitorProducts,
+  } = data;
   const lastAnalyzedAt = insights[0]?.created_at ?? null;
 
   return (
@@ -65,6 +72,7 @@ export default async function CompetitorDetailPage({
         insights={insights}
         linkedProducts={linkedProducts}
         allProducts={allProducts}
+        competitorProducts={competitorProducts}
       />
     </div>
   );

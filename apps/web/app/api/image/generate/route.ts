@@ -11,6 +11,7 @@ import {
   fetchProductContext,
   fetchLatestCreativePayload,
   fetchCompetitorAdReference,
+  fetchTemplateContext,
 } from "@/lib/ai/context";
 import { buildImagePromptSuffix } from "@/lib/ai/image-prompt-suffix";
 import { trackCompetitorEvent } from "@/lib/competitors/telemetry";
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
   const { data: thread } = await supabase
     .from("threads")
     .select(
-      "product_id, icp_id, angle, awareness, reference_competitor_ad_id"
+      "product_id, icp_id, angle, awareness, reference_competitor_ad_id, template_id"
     )
     .eq("id", threadId)
     .eq("brand_id", brandId)
@@ -108,21 +109,32 @@ export async function POST(request: NextRequest) {
   // upstream LLM's `creative_direction` (which already considers all of the
   // above). The output suffix is fully role-tagged so the model can use each
   // signal as a hard anchor.
-  const [brand, product, icp, latestPayload, referenceAd] = await Promise.all([
-    fetchBrandContext(supabase, brandId),
-    thread?.product_id
-      ? fetchProductContext(supabase, thread.product_id)
-      : null,
-    thread?.icp_id ? fetchIcpContext(supabase, thread.icp_id) : null,
-    fetchLatestCreativePayload(supabase, threadId),
-    thread?.reference_competitor_ad_id
-      ? fetchCompetitorAdReference(supabase, thread.reference_competitor_ad_id)
-      : null,
-  ]);
+  const [brand, product, icp, latestPayload, referenceAd, template] =
+    await Promise.all([
+      fetchBrandContext(supabase, brandId),
+      thread?.product_id
+        ? fetchProductContext(supabase, thread.product_id)
+        : null,
+      thread?.icp_id ? fetchIcpContext(supabase, thread.icp_id) : null,
+      fetchLatestCreativePayload(supabase, threadId),
+      thread?.reference_competitor_ad_id
+        ? fetchCompetitorAdReference(
+            supabase,
+            thread.reference_competitor_ad_id
+          )
+        : null,
+      thread?.template_id
+        ? fetchTemplateContext(supabase, thread.template_id)
+        : null,
+    ]);
 
-  // Pin the competitor reference image at the front of the references list so
-  // gpt-image-1 treats it as the dominant composition anchor. We dedupe in
-  // case the same URL was already added via attachments.
+  // Reference ordering matters — gpt-image-1 weights earlier images more.
+  // Slot 0 = competitor screenshot (the strongest "make it like this" cue
+  // when present). Slot 1 = template layout (structural anchor). Slot 2+ =
+  // product hero + user attachments resolved earlier.
+  if (template?.thumbnail_url && !references.includes(template.thumbnail_url)) {
+    references.unshift(template.thumbnail_url);
+  }
   if (referenceAd?.image_url && !references.includes(referenceAd.image_url)) {
     references.unshift(referenceAd.image_url);
   }
@@ -136,6 +148,7 @@ export async function POST(request: NextRequest) {
     size,
     creativeDirection: latestPayload?.creative_direction ?? null,
     referenceAd,
+    template,
   });
   const finalPrompt = suffix ? `${prompt}\n\n${suffix}` : prompt;
 

@@ -7,8 +7,7 @@ import {
   getThreadsList,
   getStudioContext,
 } from "@/lib/studio/queries";
-import { Conversation } from "@/components/studio/conversation";
-import { ContextPanel } from "@/components/studio/context-panel";
+import { ThreadWorkspace } from "@/components/studio/thread-workspace";
 import { StudioHeader } from "@/components/studio/studio-header";
 
 export default async function ThreadPage({
@@ -51,30 +50,12 @@ export default async function ThreadPage({
         context={context}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-          <Conversation
-            brandId={brand.id}
-            threadId={threadId}
-            messages={messages}
-            threadContext={{
-              productId: thread.product_id,
-              icpId: thread.icp_id,
-              templateId: thread.template_id,
-              angle: thread.angle,
-              awareness: thread.awareness,
-              referenceCompetitorAdId: thread.reference_competitor_ad_id,
-            }}
-            angle={thread.angle}
-            awareness={thread.awareness}
-            studioContext={context}
-          />
-        </div>
-
-        <div className="flex min-h-0 flex-col">
-          <ContextPanel thread={thread} context={context} />
-        </div>
-      </div>
+      <ThreadWorkspace
+        brandId={brand.id}
+        thread={thread}
+        messages={messages}
+        studioContext={context}
+      />
     </div>
   );
 }

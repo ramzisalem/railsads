@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { fetchPrimaryProductImageUrls } from "@/lib/products/queries";
+import { resolveTemplateThumbnailUrl } from "./template-thumbnail";
 import type {
   ThreadListItem,
   ThreadDetail,
@@ -107,9 +108,12 @@ export async function getStudioContext(
         .order("title"),
       supabase
         .from("templates")
-        .select("id, key, name, description, category")
+        .select("id, key, name, description, category, thumbnail_url, is_system")
         .or(`brand_id.eq.${brandId},brand_id.is.null`)
         .eq("is_active", true)
+        // Brand-uploaded templates float to the top so a creator's own
+        // catalog is what they see first; system templates follow.
+        .order("is_system", { ascending: true })
         .order("name"),
       // Competitor ads usable as Studio references — keep the fetch capped
       // to avoid bloating the RSC payload for prolific brands. We sort by
@@ -160,7 +164,15 @@ export async function getStudioContext(
       objections: row.objections ?? [],
       triggers: row.triggers ?? [],
     })) as IcpOption[],
-    templates: (templatesResult.data ?? []) as TemplateOption[],
+    templates: ((templatesResult.data ?? []) as TemplateOption[]).map(
+      (template) => ({
+        ...template,
+        thumbnail_url: resolveTemplateThumbnailUrl(
+          supabase,
+          template.thumbnail_url
+        ),
+      })
+    ),
     competitorAds: ((competitorAdsResult.data ?? []) as unknown as Array<{
       id: string;
       competitor_id: string;

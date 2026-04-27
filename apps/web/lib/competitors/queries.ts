@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { getNewAdCountsByScope } from "@/lib/competitors/analyzed-ads";
+import {
+  getCompetitorProducts,
+  type CompetitorProductItem,
+} from "@/lib/competitors/products-queries";
 
 export interface CompetitorListItem {
   id: string;
@@ -105,6 +109,8 @@ export interface FullCompetitorData {
   linkedProducts: LinkedProductOption[];
   allProducts: ProductOption[];
   newAdCounts: NewAdsByScope;
+  /** Products imported from the competitor's own website */
+  competitorProducts: CompetitorProductItem[];
 }
 
 export async function getCompetitorsList(
@@ -257,11 +263,14 @@ export async function getCompetitorDetail(
       link_notes: noteByProductId.get(p.id) ?? null,
     }));
 
-  const newAdCounts = await getNewAdCountsByScope(
-    supabase,
-    competitorId,
-    linkedProducts.map((p) => p.id)
-  );
+  const [newAdCounts, competitorProducts] = await Promise.all([
+    getNewAdCountsByScope(
+      supabase,
+      competitorId,
+      linkedProducts.map((p) => p.id)
+    ),
+    getCompetitorProducts(supabase, competitorId, brandId),
+  ]);
 
   return {
     competitor: competitor as CompetitorDetail,
@@ -280,5 +289,6 @@ export async function getCompetitorDetail(
       whole: newAdCounts.whole,
       byProduct: newAdCounts.byProduct,
     },
+    competitorProducts,
   };
 }

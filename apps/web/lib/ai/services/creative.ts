@@ -83,17 +83,24 @@ export async function generateCreative(
       referenceAd: referenceAd ?? undefined,
     });
 
-    // Layer in the reference ad's screenshot alongside any user-attached
-    // images. The reference image goes FIRST so the model treats it as the
-    // primary inspiration anchor.
+    // Layer in (in this order): the competitor reference (composition anchor),
+    // the selected template thumbnail (layout anchor), then any user-attached
+    // images (messaging cues). The competitor reference goes FIRST when set
+    // because it carries the strongest "make it like this" signal.
     const images = [
       ...(referenceAd?.image_url ? [referenceAd.image_url] : []),
+      ...(template?.thumbnail_url ? [template.thumbnail_url] : []),
       ...(params.attachmentUrls ?? []),
     ];
     const noteParts: string[] = [];
     if (referenceAd?.image_url) {
       noteParts.push(
         `The first attached image is a competitor ad we want to draw composition / energy from. Match its layout vibe but render OUR product, palette, and typography.`
+      );
+    }
+    if (template?.thumbnail_url) {
+      noteParts.push(
+        `An attached image shows the "${template.name}" template layout. Reproduce its structure (panels, hierarchy, callout positions) in the image_prompt — but with OUR product, palette, and copy.`
       );
     }
     if ((params.attachmentUrls ?? []).length > 0) {

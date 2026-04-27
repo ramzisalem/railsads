@@ -3,6 +3,7 @@ import type {
   CompetitorReferenceAd,
   IcpContext,
   ProductContext,
+  TemplateContext,
 } from "./prompts";
 
 /**
@@ -49,6 +50,12 @@ export interface ImagePromptSuffixInputs {
    * brand-owned assets, claims, or text.
    */
   referenceAd?: CompetitorReferenceAd | null;
+  /**
+   * A pinned ad template (visual layout). When set, the template thumbnail
+   * is also passed to gpt-image-1 as a reference and we tell the model to
+   * adopt the template's structure (panels, hierarchy, callout positions).
+   */
+  template?: TemplateContext | null;
 }
 
 const AWARENESS_GUIDANCE: Record<string, string> = {
@@ -113,6 +120,7 @@ export function buildImagePromptSuffix(
     creativeDirection,
     preserveReference,
     referenceAd,
+    template,
   } = inputs;
   const sections: string[] = [];
 
@@ -251,6 +259,23 @@ export function buildImagePromptSuffix(
     sections.push(refLines.join("\n"));
   }
 
+  // ---- TEMPLATE LAYOUT REFERENCE -----------------------------------
+  // The template thumbnail is added to the references list right after the
+  // competitor reference (see route). It is a STRUCTURAL anchor — adopt the
+  // panels / hierarchy / callout positioning, but render OUR product, copy,
+  // and palette. Never copy any text, badges, faces, or branding from the
+  // template thumbnail (those are placeholders).
+  if (template?.thumbnail_url) {
+    const templateLines: string[] = [
+      `TEMPLATE LAYOUT — one of the attached reference images shows the "${template.name}" template. Use it as a STRUCTURAL anchor: adopt the same composition, panel arrangement, headline / callout / product positioning, and visual rhythm.`,
+      `Do NOT copy any text, faces, products, branding, badges, or stock content from the template thumbnail — those are placeholders. Replace every element with OUR product, OUR copy (the quoted strings in this prompt), and the BRAND COLORS palette above.`,
+    ];
+    if (template.layout) {
+      templateLines.push(`Layout brief: ${template.layout}`);
+    }
+    sections.push(templateLines.join("\n"));
+  }
+
   // ---- OUTPUT FORMAT / MEDIUM ---------------------------------------
   if (size && FORMAT_GUIDANCE[size]) {
     sections.push(FORMAT_GUIDANCE[size]);
@@ -263,9 +288,17 @@ export function buildImagePromptSuffix(
   // SDK is also called with `input_fidelity: "high"`; the prompt-side rule
   // reinforces what that flag enables.
   if (brand.name) {
-    const productRefClause = referenceAd?.image_url
-      ? `treat the OTHER reference image(s) (everything EXCEPT the first competitor reference) as the canonical ${brand.name} packaging`
-      : `treat the reference image(s) as the canonical ${brand.name} packaging`;
+    // Build the exclude clause based on which non-product reference slots
+    // are populated (competitor screenshot, template layout). Those refs
+    // are STRUCTURAL — NOT the canonical packaging — so the model must not
+    // copy product text from them.
+    const excluded: string[] = [];
+    if (referenceAd?.image_url) excluded.push("competitor reference");
+    if (template?.thumbnail_url) excluded.push("template layout reference");
+    const productRefClause =
+      excluded.length > 0
+        ? `treat the OTHER reference image(s) (everything EXCEPT the ${excluded.join(" and the ")}) as the canonical ${brand.name} packaging`
+        : `treat the reference image(s) as the canonical ${brand.name} packaging`;
     const baseRule = preserveReference
       ? `PRODUCT PACKAGING — the reference image IS the product. Preserve packaging shape, proportions, label colors, illustrations, photography, and ALL packaging text exactly as shown. Only change what the edit instruction requests.`
       : `PRODUCT PACKAGING — ${productRefClause}. Preserve packaging shape, proportions, label colors, illustrations, photography, and ALL packaging text exactly as shown. The product itself must look identical to the reference; you may only place it in a new scene.`;

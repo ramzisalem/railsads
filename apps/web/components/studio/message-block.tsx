@@ -602,19 +602,32 @@ function VariantRow({
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const Wrapper: "button" | "div" = selectable ? "button" : "div";
+  function handleSelectKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!selectable || !onToggleSelect) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onToggleSelect();
+    }
+  }
 
+  // The row itself can't be a <button> because it contains a nested copy
+  // <button>, which is invalid HTML and triggers hydration mismatches when
+  // the browser hoists the inner button out of the parent. Use a div with
+  // ARIA button semantics when the row is selectable.
   return (
-    <Wrapper
-      type={selectable ? "button" : undefined}
+    <div
+      role={selectable ? "button" : undefined}
+      tabIndex={selectable ? 0 : undefined}
       onClick={selectable ? onToggleSelect : undefined}
+      onKeyDown={selectable ? handleSelectKeyDown : undefined}
       aria-pressed={selectable ? Boolean(selected) : undefined}
       className={cn(
         "group flex w-full items-start justify-between gap-3 rounded-lg border px-2 py-1.5 text-left transition-colors",
         selected
           ? "border-primary/40 bg-primary-soft/40"
           : "border-transparent hover:bg-muted/50",
-        selectable && "cursor-pointer"
+        selectable &&
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
       )}
     >
       <div className="flex min-w-0 items-start gap-2">
@@ -661,7 +674,7 @@ function VariantRow({
           )}
         </button>
       </div>
-    </Wrapper>
+    </div>
   );
 }
 

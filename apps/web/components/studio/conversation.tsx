@@ -12,18 +12,10 @@ import {
 import { MessageBlock } from "./message-block";
 import { QuickActions } from "./quick-actions";
 import { ChatInput } from "./chat-input";
-import { ChatContextStrip } from "./chat-context-strip";
 import { ImageEditDialog, type ImageVersion } from "./image-edit-dialog";
 import { sendMessage, saveCreativeVersion } from "@/lib/studio/actions";
-import type {
-  GeneratedImage,
-  MessageItem,
-  StudioContext,
-} from "@/lib/studio/types";
-import {
-  DEFAULT_IMAGE_GEN_SIZE,
-  type ImageGenSize,
-} from "@/lib/studio/image-gen-sizes";
+import type { GeneratedImage, MessageItem } from "@/lib/studio/types";
+import type { ImageGenSize } from "@/lib/studio/image-gen-sizes";
 import type { ComposerMode } from "@/lib/validation/schemas";
 
 interface ThreadContext {
@@ -40,9 +32,12 @@ interface ConversationProps {
   threadId: string;
   messages: MessageItem[];
   threadContext: ThreadContext;
-  angle: string | null;
-  awareness: string | null;
-  studioContext: StudioContext;
+  /**
+   * Image aspect ratio for new generations / edits. Owned by the parent
+   * (`ThreadWorkspace`) so the side-panel ratio picker drives every image
+   * call kicked off from this conversation.
+   */
+  imageSize: ImageGenSize;
 }
 
 export function Conversation({
@@ -50,22 +45,13 @@ export function Conversation({
   threadId,
   messages,
   threadContext,
-  angle,
-  awareness,
-  studioContext,
+  imageSize,
 }: ConversationProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [editorMessageId, setEditorMessageId] = useState<string | null>(null);
-  // Lifted ratio state — chosen once in the context strip and applied to every
-  // image generation triggered from this conversation. Keeps the picker visible
-  // alongside Product / Audience / Angle / Awareness instead of buried inside
-  // each image-prompt block.
-  const [imageSize, setImageSize] = useState<ImageGenSize>(
-    DEFAULT_IMAGE_GEN_SIZE
-  );
   // Composer mode: persisted within a session so toggling "Image only" sticks
   // for follow-ups until the user changes it.
   const [composerMode, setComposerMode] = useState<ComposerMode>("full");
@@ -458,21 +444,6 @@ export function Conversation({
       </div>
 
       <div className="shrink-0 border-t border-border bg-card">
-        <ChatContextStrip
-          threadId={threadId}
-          productId={threadContext.productId}
-          icpId={threadContext.icpId ?? null}
-          angle={angle}
-          awareness={awareness}
-          referenceCompetitorAdId={
-            threadContext.referenceCompetitorAdId ?? null
-          }
-          products={studioContext.products}
-          icps={studioContext.icps}
-          competitorAds={studioContext.competitorAds}
-          imageSize={imageSize}
-          onImageSizeChange={setImageSize}
-        />
         <ChatInput
           brandId={brandId}
           threadId={threadId}

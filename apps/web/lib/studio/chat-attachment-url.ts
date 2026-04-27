@@ -12,6 +12,7 @@ const ALLOWED_BUCKETS = [
   "product-images",
   "creative-assets",
   "competitor-ads",
+  "template-thumbnails",
 ] as const;
 
 type AllowedBucket = (typeof ALLOWED_BUCKETS)[number];
@@ -44,17 +45,17 @@ export function isAllowedChatAttachmentUrl(url: string): boolean {
 /**
  * Allowlist check used for ALL server-side image fetches in the AI pipeline.
  * Permits only public Supabase Storage URLs in the buckets we own. By default
- * accepts every owned bucket (chat-attachments, product-images, creative-assets);
- * pass `allowedBuckets` to narrow.
+ * accepts every owned bucket (chat-attachments, product-images, creative-assets,
+ * competitor-ads, template-thumbnails); pass `allowedBuckets` to narrow.
  */
 export function isAllowedReferenceImageUrl(
   url: string,
   allowedBuckets: ReadonlyArray<AllowedBucket> = ALLOWED_BUCKETS
 ): boolean {
-  const origin = getBaseOrigin();
-  if (!origin) return false;
   try {
     const u = new URL(url);
+    const origin = getBaseOrigin();
+    if (!origin) return false;
     if (!originMatches(u, origin)) return false;
     return allowedBuckets.some((bucket) => isPublicStoragePath(u, bucket));
   } catch {

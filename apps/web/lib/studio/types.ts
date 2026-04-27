@@ -64,6 +64,10 @@ export interface TemplateOption {
   name: string;
   description: string | null;
   category: string | null;
+  /** Public URL of the template preview image (system thumbnail or brand upload). */
+  thumbnail_url: string | null;
+  /** True when the template ships with the app — brand-uploaded ones can be deleted. */
+  is_system: boolean;
 }
 
 export interface ProductOption {

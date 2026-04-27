@@ -149,6 +149,29 @@ export const saveCompetitorSchema = z.object({
   websiteUrl: z.string().max(2048).nullable().optional(),
 });
 
+const competitorProductImportItemSchema = z.object({
+  name: shortText,
+  short_description: z.string().max(2000).nullable().optional(),
+  description: z.string().max(10_000).nullable().optional(),
+  price_text: z.string().max(200).nullable().optional(),
+  price_currency: z.string().max(3).nullable().optional(),
+  product_url: z.string().max(2048).nullable().optional(),
+  image_url: z.string().max(2048).nullable().optional(),
+  key_features: z.array(z.string().max(500)).max(16).nullable().optional(),
+  product_category: z.string().max(200).nullable().optional(),
+});
+
+export const competitorProductsImportSchema = z.object({
+  brandId: uuid,
+  websiteUrl: z.string().min(4).max(2048),
+});
+
+export const competitorProductsSaveSchema = z.object({
+  brandId: uuid,
+  websiteUrl: z.string().max(2048).optional(),
+  products: z.array(competitorProductImportItemSchema).min(1).max(50),
+});
+
 export const billingCheckoutSchema = z.object({
   planCode: z.enum(["starter", "pro"]),
 });

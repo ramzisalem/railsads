@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Images, Lightbulb, Settings as SettingsIcon } from "lucide-react";
+import {
+  Images,
+  Lightbulb,
+  Package,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import type {
   CompetitorAd,
   CompetitorDetail,
@@ -9,12 +14,14 @@ import type {
   LinkedProductOption,
   ProductOption,
 } from "@/lib/competitors/queries";
+import type { CompetitorProductItem } from "@/lib/competitors/products-queries";
 import { AdLibrary } from "@/components/competitors/ad-library";
 import { InsightsDisplay } from "@/components/competitors/insights-display";
 import { CompetitorOverview } from "@/components/competitors/competitor-overview";
 import { ProductMapping } from "@/components/competitors/product-mapping";
+import { CompetitorProductsTab } from "@/components/competitors/competitor-products-tab";
 
-type TabKey = "ads" | "insights" | "settings";
+type TabKey = "products" | "ads" | "insights" | "settings";
 
 interface CompetitorDetailTabsProps {
   brandId: string;
@@ -23,6 +30,7 @@ interface CompetitorDetailTabsProps {
   insights: CompetitorInsight[];
   linkedProducts: LinkedProductOption[];
   allProducts: ProductOption[];
+  competitorProducts: CompetitorProductItem[];
 }
 
 export function CompetitorDetailTabs({
@@ -32,8 +40,9 @@ export function CompetitorDetailTabs({
   insights,
   linkedProducts,
   allProducts,
+  competitorProducts,
 }: CompetitorDetailTabsProps) {
-  const [tab, setTab] = useState<TabKey>("ads");
+  const [tab, setTab] = useState<TabKey>("products");
 
   const tabs: {
     key: TabKey;
@@ -41,6 +50,12 @@ export function CompetitorDetailTabs({
     icon: typeof Images;
     count?: number;
   }[] = [
+    {
+      key: "products",
+      label: "Products",
+      icon: Package,
+      count: competitorProducts.length,
+    },
     { key: "ads", label: "Ads", icon: Images, count: ads.length },
     {
       key: "insights",
@@ -90,6 +105,15 @@ export function CompetitorDetailTabs({
         </nav>
       </div>
 
+      {tab === "products" && (
+        <CompetitorProductsTab
+          brandId={brandId}
+          competitorId={competitor.id}
+          competitorWebsiteUrl={competitor.website_url}
+          competitorProducts={competitorProducts}
+          brandProducts={allProducts}
+        />
+      )}
       {tab === "ads" && (
         <AdLibrary
           brandId={brandId}

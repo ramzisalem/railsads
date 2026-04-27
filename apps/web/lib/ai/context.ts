@@ -12,6 +12,7 @@ import {
   effectiveColorPalette,
   paletteForDb,
 } from "@/lib/brand/color-palette";
+import { resolveTemplateThumbnailUrl } from "@/lib/studio/template-thumbnail";
 
 /**
  * Fetches compact brand context for AI prompts.
@@ -154,7 +155,11 @@ export async function fetchIcpContext(
 }
 
 /**
- * Fetches compact template context for AI prompts.
+ * Fetches compact template context for AI prompts. The `thumbnail_url`
+ * column always stores an absolute Supabase Storage URL (system templates
+ * live in the `template-thumbnails/system/` bucket, brand templates in
+ * `template-thumbnails/<brandId>/`), so the value can be passed straight
+ * through to `gpt-image-1` as a layout reference.
  */
 export async function fetchTemplateContext(
   supabase: SupabaseClient,
@@ -162,19 +167,25 @@ export async function fetchTemplateContext(
 ): Promise<TemplateContext> {
   const { data: template } = await supabase
     .from("templates")
-    .select("name, key, structure")
+    .select("name, key, structure, thumbnail_url")
     .eq("id", templateId)
     .single();
 
   const structure = template?.structure as Record<string, unknown> | null;
+  const thumbnail_url = resolveTemplateThumbnailUrl(
+    supabase,
+    (template?.thumbnail_url as string | null) ?? null
+  );
 
   return {
     name: template?.name ?? "Unknown Template",
     key: template?.key ?? "unknown",
+    layout: typeof structure?.layout === "string" ? structure.layout : undefined,
     sections: Array.isArray(structure?.sections)
       ? (structure.sections as string[])
       : [],
     guidelines: (structure?.guidelines as string) ?? "",
+    thumbnail_url,
   };
 }
 
