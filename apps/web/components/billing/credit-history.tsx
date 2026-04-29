@@ -126,6 +126,10 @@ const EVENT_DESCRIPTORS: Record<CreditHistoryEventType, RowDescriptor> = {
     Icon: ImageIcon,
     label: "Generated image",
   },
+  image_edit: {
+    Icon: ImageIcon,
+    label: "Edited image (iteration)",
+  },
   icp_generation: {
     Icon: Target,
     label: "Generated ICP",

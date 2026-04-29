@@ -33,13 +33,14 @@ Users see:
 Mapping
 Creative generation        → 15 credits
 Image generation           → 25 credits
+Image edit / iteration     → 25 credits (same as a new image — each edit calls the image model again)
 ICP generation             → 5 credits
 Competitor analysis        → 10 credits
 Website import             → 20 credits
-Iteration                  → FREE
+Creative copy revision     → FREE (chat refinements to hooks / body / headlines)
 
 Rule
-Charge for creation, not iteration
+Charge for new AI artifacts; creative **copy** iteration stays free; **image** edits each cost 25 credits
 
 🧠 3. Plans Breakdown
 
@@ -265,7 +266,7 @@ Usage:
 Tracked in Supabase
 
 Key rules:
-- Charge for generation
-- Free iteration
+- Charge for generation (including each image edit)
+- Free creative text revision only
 - Hide complexity
 

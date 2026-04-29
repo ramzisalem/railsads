@@ -123,6 +123,7 @@ async function updateMonthlyRollup(
 const EVENT_TYPE_TO_ROLLUP_FIELD: Record<string, string> = {
   creative_generation: "creative_generations",
   image_generation: "image_generations",
+  image_edit: "image_generations",
   icp_generation: "icp_generations",
   competitor_analysis: "competitor_analyses",
   website_import: "website_imports",

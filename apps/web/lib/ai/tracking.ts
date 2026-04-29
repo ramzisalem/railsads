@@ -7,6 +7,7 @@ type AiServiceType =
   | "creative_generation"
   | "creative_revision"
   | "image_generation"
+  | "image_edit"
   | "thread_title";
 
 export interface CreateRunParams {

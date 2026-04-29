@@ -76,18 +76,19 @@ export default async function PricingPage() {
         <div className="mt-16 rounded-2xl border bg-card p-8">
           <h2 className="heading-md">What counts as a creative?</h2>
           <p className="mt-2 text-body text-muted-foreground">
-            Each plan ships with a monthly creative budget. You only spend
-            against your plan when the AI <em>generates</em> something —
-            iterating and editing existing creatives is always free.
+            Each plan ships with a monthly creative budget. You spend credits when
+            the AI produces a new deliverable — refining <em>copy</em> in the studio
+            is free, but each <em>image</em> generation or edit (including
+            iterations in the image editor) costs 25 credits, same as a new image.
           </p>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <UsageRow label="Generate a new creative" cost="≈ 1 creative" />
-            <UsageRow label="Generate an image" cost="≈ 1.5 creatives" />
+            <UsageRow label="Generate or edit an image" cost="≈ 1.5 creatives" />
             <UsageRow label="Generate ICPs for a product" cost="≈ ⅓ creative" />
             <UsageRow label="Analyse a competitor" cost="≈ ⅔ creative" />
             <UsageRow label="Import a website" cost="≈ 1 ⅓ creatives" />
-            <UsageRow label="Iterate on an existing creative" cost="Free" />
+            <UsageRow label="Revise creative copy in chat" cost="Free" />
           </div>
         </div>
 

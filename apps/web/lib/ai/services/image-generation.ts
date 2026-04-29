@@ -20,6 +20,11 @@ export interface GenerateImageParams {
    * Typically: [productHeroImage, ...recentChatAttachments]. Capped at 4.
    */
   referenceImageUrls?: string[];
+  /**
+   * First-time chat image vs modal edit chain — drives `ai_runs.service_type`
+   * (and should match the billing `usage_events.event_type` at the route).
+   */
+  imageServiceType?: "image_generation" | "image_edit";
 }
 
 export interface GenerateImageResult {
@@ -35,16 +40,17 @@ export async function generateImage(
   supabase: SupabaseClient,
   params: GenerateImageParams
 ): Promise<GenerateImageResult> {
+  const serviceType = params.imageServiceType ?? "image_generation";
   const runId = await createAiRun(supabase, {
     brandId: params.brandId,
     threadId: params.threadId,
-    serviceType: "image_generation",
+    serviceType,
     model: MODELS.image,
     // v1.2 = SSRF allowlist + collision-proof storage path + richer
     // response_payload (size, mode, ref_count, prompt length). Bump whenever
     // we change anything that affects the generated artifact OR the
     // observability shape of an image_generation run.
-    promptVersion: "1.2",
+    promptVersion: serviceType === "image_edit" ? "1.2-edit" : "1.2",
     userId: params.userId,
   });
 

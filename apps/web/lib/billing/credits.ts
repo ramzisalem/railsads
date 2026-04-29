@@ -160,7 +160,7 @@ export async function getCreditState(
 
 /**
  * Decide if a brand can run an action and what to tell them if not.
- * Free actions (cost=0, e.g. iteration) are always allowed.
+ * Free actions (cost=0, e.g. creative text revision) are always allowed.
  */
 export async function canPerformAction(
   admin: SupabaseClient,

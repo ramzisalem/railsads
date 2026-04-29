@@ -118,6 +118,7 @@ create type public.ai_service_type as enum (
   'creative_generation',
   'creative_revision',
   'image_generation',
+  'image_edit',
   'thread_title'
 );
 
@@ -137,6 +138,7 @@ create type public.usage_event_type as enum (
   'creative_generation',
   'creative_revision',
   'image_generation',
+  'image_edit',
   'export'
 );
 ```
@@ -917,10 +919,11 @@ This is not schema, but it should live next to the billing system.
 ```text
 Creative generation  → 15 credits
 Image generation     → 25 credits
+Image edit           → 25 credits (modal iterations on an image)
 ICP generation       → 5 credits
 Competitor analysis  → 10 credits
 Website import       → 20 credits
-Creative iteration   → FREE
+Creative copy revision (chat) → FREE
 ```
 
 Plans:

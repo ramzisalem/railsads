@@ -9,12 +9,13 @@ describe("CREDIT_COSTS", () => {
   it("maps all expected service types", () => {
     expect(CREDIT_COSTS.creative_generation).toBe(15);
     expect(CREDIT_COSTS.image_generation).toBe(25);
+    expect(CREDIT_COSTS.image_edit).toBe(25);
     expect(CREDIT_COSTS.icp_generation).toBe(5);
     expect(CREDIT_COSTS.competitor_analysis).toBe(10);
     expect(CREDIT_COSTS.website_import).toBe(20);
   });
 
-  it("marks iteration and export as free", () => {
+  it("marks creative text revision and export as free", () => {
     expect(CREDIT_COSTS.creative_revision).toBe(0);
     expect(CREDIT_COSTS.export).toBe(0);
   });

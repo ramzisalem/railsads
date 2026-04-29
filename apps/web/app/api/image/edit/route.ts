@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const gateResponse = await checkCreditGate(brandId, "image_generation");
+  const gateResponse = await checkCreditGate(brandId, "image_edit");
   if (gateResponse) return gateResponse;
 
   // Resolve the source image. We require the parent message to belong to the
@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       size,
       referenceImageUrls: [parentImage.url],
+      imageServiceType: "image_edit",
     });
 
     const { data: assistantMsg, error: assistantError } = await supabase
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     await safeTrackUsage({
       brandId,
-      eventType: "image_generation",
+      eventType: "image_edit",
       userId: user.id,
       threadId,
       aiRunId: runId ?? undefined,

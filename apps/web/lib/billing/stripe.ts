@@ -21,6 +21,8 @@ export const STRIPE_PRICES = {
 export const CREDIT_COSTS: Record<string, number> = {
   creative_generation: 15,
   image_generation: 25,
+  /** Same API cost as a new image — each edit/iteration uses gpt-image-1 again. */
+  image_edit: 25,
   icp_generation: 5,
   competitor_analysis: 10,
   website_import: 20,

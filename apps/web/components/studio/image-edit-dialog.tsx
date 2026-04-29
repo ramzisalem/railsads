@@ -313,9 +313,8 @@ export function ImageEditDialog({
                 </button>
               </div>
               <p className="mt-1.5 text-[10px] text-muted-foreground">
-                Enter to send · Shift+Enter for newline · the source image is
-                kept as a visual reference so the edit only changes what you
-                ask for.
+                Each edit uses <span className="font-medium text-foreground">25 credits</span> (same as generating a new image). Enter to send ·
+                Shift+Enter for newline · the source image stays as a visual reference.
               </p>
             </form>
           </div>

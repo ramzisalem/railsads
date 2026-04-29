@@ -61,6 +61,7 @@ export type CreditHistoryEventType =
   | "creative_generation"
   | "creative_revision"
   | "image_generation"
+  | "image_edit"
   | "export";
 
 export interface CreditHistoryEntry {
