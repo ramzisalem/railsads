@@ -1,5 +1,4 @@
 import { Sidebar, type SidebarBillingSummary } from "./sidebar";
-import { NoSubscriptionBanner } from "./no-subscription-banner";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getCurrentBrand,
@@ -43,8 +42,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         billing={billingSummary}
       />
       <main className="flex-1 pt-14 md:pt-0 md:pl-[270px]">
-        <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8 space-y-6">
-          <NoSubscriptionBanner billing={billingSummary} />
+        <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
           {children}
         </div>
       </main>

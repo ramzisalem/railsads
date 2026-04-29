@@ -10,6 +10,7 @@ import {
   LayoutTemplate,
   Maximize2,
   Package,
+  Palette,
   Plus,
   Sparkles,
   Star,
@@ -34,6 +35,10 @@ import {
   IMAGE_GEN_RATIO_OPTIONS,
   type ImageGenSize,
 } from "@/lib/studio/image-gen-sizes";
+import {
+  VISUAL_STYLE_PRESETS,
+  getVisualStylePreset,
+} from "@/lib/studio/visual-styles";
 import { cn } from "@/lib/utils";
 import { IcpDetailsDialog } from "./icp-details-dialog";
 import { AspectRatioGlyph } from "./aspect-ratio-glyph";
@@ -47,6 +52,7 @@ type SectionId =
   | "awareness"
   | "template"
   | "reference"
+  | "visual_style"
   | "ratio";
 
 interface ContextPanelProps {
@@ -147,6 +153,7 @@ export function ContextPanel({
   const selectedRatio = IMAGE_GEN_RATIO_OPTIONS.find(
     (o) => o.size === imageSize
   );
+  const selectedVisualStyle = getVisualStylePreset(thread.visual_style);
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-secondary-soft/60 p-4 sm:p-5">
@@ -383,6 +390,36 @@ export function ContextPanel({
         </SectionGroup>
 
         <SectionGroup label="Output">
+          <Section
+            id="visual_style"
+            label="Visual style"
+            icon={Palette}
+            open={openSection === "visual_style"}
+            onToggle={() => toggle("visual_style")}
+            modified={!!selectedVisualStyle}
+            summary={
+              selectedVisualStyle ? (
+                <ChipSummary
+                  iconNode={<Palette />}
+                  text={selectedVisualStyle.label}
+                />
+              ) : (
+                <MutedSummary text="Brand default" />
+              )
+            }
+            onClear={
+              thread.visual_style
+                ? () => update({ visual_style: null })
+                : undefined
+            }
+          >
+            <VisualStylePicker
+              selectedValue={thread.visual_style}
+              disabled={isPending}
+              onSelect={(v) => update({ visual_style: v })}
+            />
+          </Section>
+
           <Section
             id="ratio"
             label="Ratio"
@@ -684,6 +721,67 @@ function ChipPicker({
             aria-pressed={isSel}
           >
             {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function VisualStylePicker({
+  selectedValue,
+  disabled,
+  onSelect,
+}: {
+  selectedValue: string | null;
+  disabled?: boolean;
+  onSelect: (value: string | null) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onSelect(null)}
+        aria-pressed={!selectedValue}
+        title="Use the brand's default visual identity (no style override)."
+        className={cn(
+          "flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+          "disabled:pointer-events-none disabled:opacity-50",
+          !selectedValue
+            ? "border-primary/50 bg-primary-soft/40 text-foreground"
+            : "border-border bg-card text-muted-foreground hover:border-primary/35 hover:text-foreground"
+        )}
+      >
+        <span className="text-sm font-medium">Brand default</span>
+        <span className="text-[11px] text-muted-foreground">
+          Use the brand&apos;s own visual identity
+        </span>
+      </button>
+      {VISUAL_STYLE_PRESETS.map((opt) => {
+        const isSel = opt.value === selectedValue;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(opt.value)}
+            aria-pressed={isSel}
+            title={opt.description}
+            className={cn(
+              "flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+              "disabled:pointer-events-none disabled:opacity-50",
+              isSel
+                ? "border-primary/50 bg-primary-soft/40 text-foreground"
+                : "border-border bg-card text-muted-foreground hover:border-primary/35 hover:text-foreground"
+            )}
+          >
+            <span className="text-sm font-medium">{opt.label}</span>
+            <span className="line-clamp-2 text-[11px] text-muted-foreground">
+              {opt.description}
+            </span>
           </button>
         );
       })}

@@ -28,6 +28,11 @@ export interface ImagePromptSuffixInputs {
   icp?: IcpContext | null;
   angle?: string | null;
   awareness?: string | null;
+  /** Visual style preset selected on the thread (see `lib/studio/visual-styles.ts`).
+   *  When set, we restate the curated style fragment as a hard aesthetic
+   *  anchor for gpt-image-1 — the upstream LLM also bakes it into image_prompt,
+   *  but reinforcement helps the image model stay on style. */
+  visualStyle?: { label: string; prompt: string } | null;
   /** Output size, used to derive composition/aspect-ratio guidance. */
   size?: "1024x1024" | "1536x1024" | "1024x1536" | null;
   /**
@@ -116,6 +121,7 @@ export function buildImagePromptSuffix(
     icp,
     angle,
     awareness,
+    visualStyle,
     size,
     creativeDirection,
     preserveReference,
@@ -232,6 +238,21 @@ export function buildImagePromptSuffix(
       directive
         ? `AWARENESS LEVEL — ${directive}.`
         : `AWARENESS LEVEL — "${awareness}".`
+    );
+  }
+
+  // ---- VISUAL STYLE PRESET ------------------------------------------
+  // The user explicitly chose this aesthetic in the Studio context panel.
+  // It sits alongside (and outranks) brand `style_tags` for this thread —
+  // `style_tags` describe the brand's evergreen identity, `visualStyle` is
+  // the per-thread direction the user wants right now.
+  if (visualStyle) {
+    sections.push(
+      [
+        `VISUAL STYLE — "${visualStyle.label}" (per-thread aesthetic chosen by the user; outranks generic brand style tags for this generation).`,
+        visualStyle.prompt,
+        `Brand colors, product packaging fidelity, and on-image text legibility still take priority — the style sets the aesthetic, not the subject.`,
+      ].join("\n")
     );
   }
 

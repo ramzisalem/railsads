@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CreditCard, ChevronRight } from "lucide-react";
 import type { BillingOverview } from "@/lib/billing/queries";
-import { creditsToCreatives } from "@/lib/billing/stripe";
 
 interface BillingLinkCardProps {
   billing: BillingOverview;
@@ -25,7 +24,7 @@ export function BillingLinkCard({ billing }: BillingLinkCardProps) {
         ? `Renews ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}`
         : "Active subscription"
       : state === "trial"
-        ? `${creditsToCreatives(usage.creditsRemaining)} creatives left in trial`
+        ? `${usage.creditsRemaining.toLocaleString()} credits left in trial`
         : state === "trial_exhausted"
           ? "Pick a plan to continue creating"
           : "Pick a plan to start creating";

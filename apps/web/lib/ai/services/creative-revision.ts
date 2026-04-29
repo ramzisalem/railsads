@@ -16,6 +16,10 @@ import {
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import { buildResponsesUserInput } from "../responses-user-input";
+import {
+  visualStyleLabel,
+  visualStylePromptFragment,
+} from "@/lib/studio/visual-styles";
 
 const MAJOR_REWRITE_KEYWORDS = [
   "rewrite",
@@ -44,6 +48,9 @@ export interface ReviseCreativeParams {
   attachmentUrls?: string[];
   /** Competitor ad pinned to this thread (used as inspiration only). */
   referenceCompetitorAdId?: string | null;
+  /** Visual style preset id pinned to this thread — applied to the revised
+   *  creative_direction and image_prompt aesthetic. */
+  visualStyle?: string | null;
   userId: string;
 }
 
@@ -95,6 +102,13 @@ export async function reviseCreative(
           : Promise.resolve(null),
       ]);
 
+    const visualStyleLabelStr = visualStyleLabel(params.visualStyle);
+    const visualStylePrompt = visualStylePromptFragment(params.visualStyle);
+    const visualStyle =
+      visualStyleLabelStr && visualStylePrompt
+        ? { label: visualStyleLabelStr, prompt: visualStylePrompt }
+        : undefined;
+
     const { system, user } = buildCreativeRevisionPrompt({
       brand,
       product,
@@ -102,6 +116,7 @@ export async function reviseCreative(
       currentCreative,
       conversationHistory,
       userRequest: params.userMessage,
+      visualStyle,
       referenceAd: referenceAd ?? undefined,
     });
 

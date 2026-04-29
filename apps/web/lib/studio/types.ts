@@ -18,6 +18,9 @@ export interface ThreadDetail {
   title: string | null;
   angle: string | null;
   awareness: string | null;
+  /** Visual style preset id (see `lib/studio/visual-styles.ts`). Free-form
+   *  text in DB so we can grow the preset list without a migration. */
+  visual_style: string | null;
   status: string;
   active_version_id: string | null;
   created_at: string;

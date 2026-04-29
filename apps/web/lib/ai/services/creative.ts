@@ -16,6 +16,10 @@ import {
 } from "../context";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import { buildResponsesUserInput } from "../responses-user-input";
+import {
+  visualStyleLabel,
+  visualStylePromptFragment,
+} from "@/lib/studio/visual-styles";
 
 export interface GenerateCreativeParams {
   brandId: string;
@@ -30,6 +34,10 @@ export interface GenerateCreativeParams {
   /** When set, the model also gets the competitor ad's image + copy as a
    *  composition / angle reference. */
   referenceCompetitorAdId?: string | null;
+  /** Visual style preset id (e.g. `photorealistic`, `cinematic`). Drives
+   *  the aesthetic of both the structured creative_direction AND the
+   *  generated image_prompt. */
+  visualStyle?: string | null;
   userId: string;
 }
 
@@ -71,6 +79,13 @@ export async function generateCreative(
           : Promise.resolve(null),
       ]);
 
+    const visualStyleLabelStr = visualStyleLabel(params.visualStyle);
+    const visualStylePrompt = visualStylePromptFragment(params.visualStyle);
+    const visualStyle =
+      visualStyleLabelStr && visualStylePrompt
+        ? { label: visualStyleLabelStr, prompt: visualStylePrompt }
+        : undefined;
+
     const { system, user: userBase } = buildCreativeGenerationPrompt({
       brand,
       product,
@@ -78,6 +93,7 @@ export async function generateCreative(
       template,
       angle: params.angle ?? undefined,
       awareness: params.awareness ?? undefined,
+      visualStyle,
       competitorInsights:
         competitorInsights.length > 0 ? competitorInsights : undefined,
       referenceAd: referenceAd ?? undefined,

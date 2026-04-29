@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   const { data: threadRow } = await supabase
     .from("threads")
-    .select("reference_competitor_ad_id")
+    .select("reference_competitor_ad_id, visual_style")
     .eq("id", threadId)
     .maybeSingle();
 
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       awareness,
       attachmentUrls: safeAttachmentUrls,
       referenceCompetitorAdId: threadRow?.reference_competitor_ad_id ?? null,
+      visualStyle: threadRow?.visual_style ?? null,
       userId: user.id,
     });
 

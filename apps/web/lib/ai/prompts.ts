@@ -4,8 +4,11 @@ export const PROMPT_VERSIONS = {
   // model then renders the finished ad — copy and visual together.
   // v2.1 = anti-clipping: positions must be expressed as insets from the
   // canvas edge so descenders / last lines are never cropped at the frame.
-  creative_generation: "v2.1",
-  creative_revision: "v2.1",
+  // v2.2 = adds the optional `visual_style` preset (e.g. photorealistic,
+  // cinematic, illustrated, UGC) — when set it shapes both the structured
+  // creative_direction and the image_prompt aesthetic.
+  creative_generation: "v2.2",
+  creative_revision: "v2.2",
   icp_generation: "v1",
   // v2 = multimodal-aware (passes ad images alongside copy) + cited evidence
   // (every pattern in the output must reference back to the ads that
@@ -234,6 +237,10 @@ export function buildCreativeGenerationPrompt(opts: {
   template?: TemplateContext;
   angle?: string;
   awareness?: string;
+  /** Visual style preset chosen by the user (label + prompt fragment). When
+   *  set it shapes BOTH the structured `creative_direction` and the
+   *  `image_prompt` aesthetic. Brand colors / product realism still win. */
+  visualStyle?: { label: string; prompt: string };
   competitorInsights?: CompetitorInsightForPrompt[];
   referenceAd?: CompetitorReferenceAd;
 }): { system: string; user: string } {
@@ -274,6 +281,7 @@ Do NOT describe ad copy as something to be added later or in post — write the 
   if (opts.template) contextParts.push(formatTemplate(opts.template));
   if (opts.angle) contextParts.push(`Angle: ${opts.angle}`);
   if (opts.awareness) contextParts.push(`Awareness level: ${opts.awareness}`);
+  if (opts.visualStyle) contextParts.push(formatVisualStyle(opts.visualStyle));
   if (hasCompetitorData)
     contextParts.push(formatCompetitorInsights(opts.competitorInsights!));
   if (opts.referenceAd) contextParts.push(formatReferenceAd(opts.referenceAd));
@@ -286,9 +294,19 @@ Generate a complete ad creative package. Produce 3 hooks, 3 headlines, 2 primary
 
 ${opts.awareness ? `The target audience is at the "${opts.awareness}" awareness level — adjust messaging accordingly.` : ""}
 ${opts.angle ? `Use a "${opts.angle}" angle as the primary approach.` : ""}
-${opts.template ? `Follow the "${opts.template.name}" template structure.` : ""}`;
+${opts.template ? `Follow the "${opts.template.name}" template structure.` : ""}
+${opts.visualStyle ? `Render every visual reference in the "${opts.visualStyle.label}" style — bake the aesthetic into both the creative_direction and the image_prompt.` : ""}`;
 
   return { system, user };
+}
+
+function formatVisualStyle(style: { label: string; prompt: string }): string {
+  return [
+    `Visual style: ${style.label}`,
+    `Style direction (apply to creative_direction AND image_prompt):`,
+    style.prompt,
+    `Brand colors, product accuracy, and on-image text legibility still take priority — the visual style sets the aesthetic, not the subject.`,
+  ].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +326,9 @@ export function buildCreativeRevisionPrompt(opts: {
   };
   conversationHistory: { role: string; content: string }[];
   userRequest: string;
+  /** Visual style preset chosen by the user. Applied to both the revised
+   *  creative_direction and the rebuilt image_prompt. */
+  visualStyle?: { label: string; prompt: string };
   referenceAd?: CompetitorReferenceAd;
 }): { system: string; user: string } {
   const system = `You are an expert performance ad copywriter revising existing ad creatives.
@@ -335,6 +356,7 @@ The image_prompt is rendered as a FINISHED AD with on-image copy by an image mod
 
   const contextParts = [formatBrand(opts.brand), formatProduct(opts.product)];
   if (opts.icp) contextParts.push(formatIcp(opts.icp));
+  if (opts.visualStyle) contextParts.push(formatVisualStyle(opts.visualStyle));
   if (opts.referenceAd) contextParts.push(formatReferenceAd(opts.referenceAd));
 
   const currentCreativeBlock = `Current creative:

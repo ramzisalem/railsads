@@ -15,6 +15,10 @@ import {
 } from "@/lib/ai/context";
 import { buildImagePromptSuffix } from "@/lib/ai/image-prompt-suffix";
 import { trackCompetitorEvent } from "@/lib/competitors/telemetry";
+import {
+  visualStyleLabel,
+  visualStylePromptFragment,
+} from "@/lib/studio/visual-styles";
 
 export const maxDuration = 120;
 
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
   const { data: thread } = await supabase
     .from("threads")
     .select(
-      "product_id, icp_id, angle, awareness, reference_competitor_ad_id, template_id"
+      "product_id, icp_id, angle, awareness, reference_competitor_ad_id, template_id, visual_style"
     )
     .eq("id", threadId)
     .eq("brand_id", brandId)
@@ -139,12 +143,20 @@ export async function POST(request: NextRequest) {
     references.unshift(referenceAd.image_url);
   }
 
+  const styleLabel = visualStyleLabel(thread?.visual_style);
+  const stylePrompt = visualStylePromptFragment(thread?.visual_style);
+  const visualStyle =
+    styleLabel && stylePrompt
+      ? { label: styleLabel, prompt: stylePrompt }
+      : null;
+
   const suffix = buildImagePromptSuffix({
     brand,
     product,
     icp,
     angle: thread?.angle,
     awareness: thread?.awareness,
+    visualStyle,
     size,
     creativeDirection: latestPayload?.creative_direction ?? null,
     referenceAd,

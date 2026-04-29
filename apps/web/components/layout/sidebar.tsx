@@ -18,7 +18,6 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandSwitcher } from "./brand-switcher";
 import { signOut } from "@/lib/auth/actions";
-import { creditsToCreatives } from "@/lib/billing/stripe";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -173,8 +172,6 @@ function UsageCard({
   isActive: boolean;
   onClick: () => void;
 }) {
-  const totalCreatives = creditsToCreatives(billing.limit);
-  const usedCreatives = creditsToCreatives(billing.used);
   const percent =
     billing.limit > 0
       ? Math.min(Math.round((billing.used / billing.limit) * 100), 100)
@@ -211,8 +208,8 @@ function UsageCard({
         <>
           <p className="mt-2 text-xs text-muted-foreground">
             {isExhausted
-              ? "Limit reached"
-              : `${usedCreatives} / ${totalCreatives} creatives`}
+              ? "No credits left"
+              : `${billing.used.toLocaleString()} / ${billing.limit.toLocaleString()} credits`}
           </p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div

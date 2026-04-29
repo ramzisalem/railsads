@@ -13,7 +13,6 @@ import {
   Globe,
   type LucideIcon,
 } from "lucide-react";
-import { creditsToCreatives } from "@/lib/billing/stripe";
 import type {
   CreditHistoryEntry,
   CreditHistoryEventType,
@@ -38,7 +37,7 @@ export function CreditHistory({ entries }: CreditHistoryProps) {
       <div className="panel space-y-3 p-6">
         <SectionHeading />
         <p className="text-sm text-muted-foreground">
-          Nothing yet. As you generate creatives, ICPs and analyses,
+          Nothing yet. As you use credits for ads, ICPs and analyses,
           you&apos;ll see every credit movement here.
         </p>
       </div>
@@ -206,9 +205,6 @@ function CreditHistoryRow({ entry }: { entry: CreditHistoryEntry }) {
 function DeltaBadge({ delta }: { delta: number }) {
   const isCredit = delta > 0;
   const sign = isCredit ? "+" : "−";
-  const creatives = creditsToCreatives(Math.abs(delta));
-  const subline =
-    creatives > 0 ? `${creatives} creative${creatives === 1 ? "" : "s"}` : null;
 
   return (
     <div className="text-right shrink-0">
@@ -220,9 +216,6 @@ function DeltaBadge({ delta }: { delta: number }) {
         {sign}
         {Math.abs(delta).toLocaleString()}
       </p>
-      {subline && (
-        <p className="text-[10px] text-muted-foreground">{subline}</p>
-      )}
     </div>
   );
 }

@@ -11,6 +11,10 @@ import {
   fetchLatestCreativePayload,
 } from "@/lib/ai/context";
 import { buildImagePromptSuffix } from "@/lib/ai/image-prompt-suffix";
+import {
+  visualStyleLabel,
+  visualStylePromptFragment,
+} from "@/lib/studio/visual-styles";
 
 export const maxDuration = 120;
 
@@ -89,7 +93,7 @@ export async function POST(request: NextRequest) {
   // every iteration must remain on-brief, not just the first one.
   const { data: thread } = await supabase
     .from("threads")
-    .select("product_id, icp_id, angle, awareness")
+    .select("product_id, icp_id, angle, awareness, visual_style")
     .eq("id", threadId)
     .eq("brand_id", brandId)
     .maybeSingle();
@@ -103,12 +107,20 @@ export async function POST(request: NextRequest) {
     fetchLatestCreativePayload(supabase, threadId),
   ]);
 
+  const styleLabel = visualStyleLabel(thread?.visual_style);
+  const stylePrompt = visualStylePromptFragment(thread?.visual_style);
+  const visualStyle =
+    styleLabel && stylePrompt
+      ? { label: styleLabel, prompt: stylePrompt }
+      : null;
+
   const suffix = buildImagePromptSuffix({
     brand,
     product,
     icp,
     angle: thread?.angle,
     awareness: thread?.awareness,
+    visualStyle,
     size,
     creativeDirection: latestPayload?.creative_direction ?? null,
     preserveReference: true,

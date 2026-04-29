@@ -14,7 +14,8 @@ export async function createStudioThread(
   templateId?: string | null,
   angle?: string | null,
   awareness?: string | null,
-  referenceCompetitorAdId?: string | null
+  referenceCompetitorAdId?: string | null,
+  visualStyle?: string | null
 ): Promise<CreateStudioThreadResult> {
   const supabase = await createClient();
   const {
@@ -41,6 +42,7 @@ export async function createStudioThread(
       title,
       angle: angle || null,
       awareness: awareness || null,
+      visual_style: visualStyle || null,
       created_by: user.id,
     })
     .select("id")

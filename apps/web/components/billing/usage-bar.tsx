@@ -1,16 +1,9 @@
-import { creditsToCreatives } from "@/lib/billing/stripe";
-
 export interface UsageInfo {
   creditsGranted: number;
   creditsUsed: number;
   creditsRemaining: number;
   /** Plan or trial allowance — use this as the bar denominator. */
   creditsLimit?: number;
-  creativeGenerations: number;
-  imageGenerations: number;
-  icpGenerations: number;
-  competitorAnalyses: number;
-  websiteImports: number;
 }
 
 interface UsageBarProps {
@@ -19,8 +12,6 @@ interface UsageBarProps {
 
 export function UsageBar({ usage }: UsageBarProps) {
   const denominator = Math.max(usage.creditsLimit ?? usage.creditsGranted, 0);
-  const totalCreatives = creditsToCreatives(denominator);
-  const usedCreatives = creditsToCreatives(usage.creditsUsed);
   const percentage =
     denominator > 0
       ? Math.min(Math.round((usage.creditsUsed / denominator) * 100), 100)
@@ -35,7 +26,7 @@ export function UsageBar({ usage }: UsageBarProps) {
         <p className="text-sm font-medium">
           {isExhausted
             ? "Credit limit reached"
-            : `${usedCreatives} / ${totalCreatives} creatives used`}
+            : `${usage.creditsUsed.toLocaleString()} / ${denominator.toLocaleString()} credits used`}
         </p>
         <span className="text-xs text-muted-foreground">{percentage}%</span>
       </div>
@@ -55,33 +46,17 @@ export function UsageBar({ usage }: UsageBarProps) {
 
       {isWarning && !isExhausted && (
         <p className="text-xs text-amber-600">
-          You&apos;re approaching your monthly limit. Consider upgrading for
-          more creatives.
+          You&apos;re approaching your monthly credit limit. Consider upgrading
+          for more credits.
         </p>
       )}
 
       {isExhausted && (
         <p className="text-xs text-destructive">
-          You&apos;ve used all your creatives this month. Upgrade your plan to
+          You&apos;ve used all your credits this month. Upgrade your plan to
           continue creating.
         </p>
       )}
-
-      <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
-        <UsageStat label="Creatives" value={usage.creativeGenerations} />
-        <UsageStat label="Images" value={usage.imageGenerations} />
-        <UsageStat label="ICPs" value={usage.icpGenerations} />
-        <UsageStat label="Analyses" value={usage.competitorAnalyses} />
-      </div>
-    </div>
-  );
-}
-
-function UsageStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="text-center">
-      <p className="text-lg font-semibold">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

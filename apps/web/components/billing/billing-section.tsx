@@ -134,15 +134,19 @@ export function BillingSection({ billing }: BillingSectionProps) {
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-stretch gap-4 sm:grid-cols-2">
             {plans.map((plan) => (
-              <div key={plan.code} className="relative">
+              <div
+                key={plan.code}
+                className="relative flex h-full min-h-0 flex-col"
+              >
                 {loading === plan.code && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/80">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )}
                 <PlanCard
+                  className="min-h-0 flex-1"
                   plan={plan}
                   isCurrentPlan={plan.code === currentPlanCode}
                   onSelect={handleCheckout}
@@ -157,15 +161,19 @@ export function BillingSection({ billing }: BillingSectionProps) {
       {subscription && plans.length > 0 && (
         <div className="space-y-4">
           <h2 className="heading-md">Available plans</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-stretch gap-4 sm:grid-cols-2">
             {plans.map((plan) => (
-              <div key={plan.code} className="relative">
+              <div
+                key={plan.code}
+                className="relative flex h-full min-h-0 flex-col"
+              >
                 {loading === plan.code && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-background/80">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )}
                 <PlanCard
+                  className="min-h-0 flex-1"
                   plan={plan}
                   isCurrentPlan={plan.code === currentPlanCode}
                   onSelect={handleCheckout}
