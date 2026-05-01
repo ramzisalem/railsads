@@ -28,6 +28,12 @@ export type {
 export { generateThreadTitle } from "./thread-title";
 export type { GenerateThreadTitleParams } from "./thread-title";
 
+export { generateStudioChat } from "./studio-chat";
+export type {
+  GenerateStudioChatParams,
+  GenerateStudioChatResult,
+} from "./studio-chat";
+
 export { importBrand } from "./brand-import";
 export type { ImportBrandParams, ImportBrandResult } from "./brand-import";
 

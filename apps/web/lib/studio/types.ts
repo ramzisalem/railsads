@@ -13,7 +13,12 @@ export interface ThreadDetail {
   brand_id: string;
   product_id: string;
   icp_id: string | null;
+  /** Primary template (mirrors `template_ids[0]`). Kept for back-compat
+   *  with single-template flows such as manual image regeneration. */
   template_id: string | null;
+  /** Ordered set of templates selected for this thread. When length > 1
+   *  the Studio fans out one creative per template per generate turn. */
+  template_ids: string[];
   reference_competitor_ad_id: string | null;
   title: string | null;
   angle: string | null;
@@ -69,8 +74,19 @@ export interface TemplateOption {
   category: string | null;
   /** Public URL of the template preview image (system thumbnail or brand upload). */
   thumbnail_url: string | null;
-  /** True when the template ships with the app — brand-uploaded ones can be deleted. */
+  /** True when the template ships with the app — brand-uploaded ones can be deleted outright. */
   is_system: boolean;
+  /** Folder this template lives in for the current brand. Always a real
+   *  folder id after the first studio load per brand (folders are seeded
+   *  from template categories). Typed nullable for back-compat with
+   *  partial API responses and transient states. */
+  folder_id: string | null;
+}
+
+export interface TemplateFolder {
+  id: string;
+  name: string;
+  sort_order: number;
 }
 
 export interface ProductOption {
@@ -112,6 +128,7 @@ export interface StudioContext {
   products: ProductOption[];
   icps: IcpOption[];
   templates: TemplateOption[];
+  templateFolders: TemplateFolder[];
   competitorAds: CompetitorAdOption[];
 }
 

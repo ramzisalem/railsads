@@ -8,7 +8,8 @@ type AiServiceType =
   | "creative_revision"
   | "image_generation"
   | "image_edit"
-  | "thread_title";
+  | "thread_title"
+  | "studio_chat";
 
 export interface CreateRunParams {
   /**

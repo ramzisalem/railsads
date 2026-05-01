@@ -46,7 +46,15 @@ export function ThreadWorkspace({
           threadContext={{
             productId: thread.product_id,
             icpId: thread.icp_id,
-            templateId: thread.template_id,
+            // Multi-select fan-out uses the ordered array; `templateId`
+            // is kept in sync (primary) for legacy callers like image
+            // regeneration from an existing message.
+            templateIds:
+              thread.template_ids && thread.template_ids.length > 0
+                ? thread.template_ids
+                : thread.template_id
+                  ? [thread.template_id]
+                  : [],
             angle: thread.angle,
             awareness: thread.awareness,
             referenceCompetitorAdId: thread.reference_competitor_ad_id,

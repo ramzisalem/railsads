@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { fetchPrimaryProductImageUrls } from "@/lib/products/queries";
 import { resolveTemplateThumbnailUrl } from "./template-thumbnail";
+import { ensureTemplateFoldersSeeded } from "./seed-template-folders";
 import type {
   ThreadListItem,
   ThreadDetail,
   MessageItem,
   StudioContext,
   TemplateOption,
+  TemplateFolder,
   ProductOption,
   IcpOption,
   CompetitorAdOption,
@@ -66,6 +68,39 @@ export async function getThreadDetail(
   return data as ThreadDetail;
 }
 
+type RawTemplateRow = Omit<TemplateOption, "folder_id">;
+type RawTemplateOverrideRow = {
+  template_id: string;
+  folder_id: string | null;
+  hidden: boolean;
+};
+
+/**
+ * Applies per-brand overrides on top of the (brand ∪ system) template set.
+ * Hidden overrides drop the template from the picker entirely; folder
+ * overrides attach a per-brand `folder_id` even for system rows that don't
+ * carry a brand-scoped folder column of their own.
+ */
+function buildTemplateOptions(
+  templates: RawTemplateRow[],
+  overrides: RawTemplateOverrideRow[]
+): TemplateOption[] {
+  const overrideByTemplate = new Map<string, RawTemplateOverrideRow>();
+  for (const row of overrides) {
+    overrideByTemplate.set(row.template_id, row);
+  }
+  const out: TemplateOption[] = [];
+  for (const t of templates) {
+    const override = overrideByTemplate.get(t.id);
+    if (override?.hidden) continue;
+    out.push({
+      ...t,
+      folder_id: override?.folder_id ?? null,
+    });
+  }
+  return out;
+}
+
 export async function getThreadMessages(
   threadId: string,
   brandId: string
@@ -89,46 +124,67 @@ export async function getStudioContext(
 ): Promise<StudioContext> {
   const supabase = await createClient();
 
-  const [productsResult, icpsResult, templatesResult, competitorAdsResult] =
-    await Promise.all([
-      supabase
-        .from("products")
-        .select("id, name, short_description")
-        .eq("brand_id", brandId)
-        .is("deleted_at", null)
-        .order("name"),
-      supabase
-        .from("icps")
-        .select(
-          "id, title, summary, product_id, is_primary, pains, desires, objections, triggers"
-        )
-        .eq("brand_id", brandId)
-        .is("archived_at", null)
-        .order("is_primary", { ascending: false })
-        .order("title"),
-      supabase
-        .from("templates")
-        .select("id, key, name, description, category, thumbnail_url, is_system")
-        .or(`brand_id.eq.${brandId},brand_id.is.null`)
-        .eq("is_active", true)
-        // Brand-uploaded templates float to the top so a creator's own
-        // catalog is what they see first; system templates follow.
-        .order("is_system", { ascending: true })
-        .order("name"),
-      // Competitor ads usable as Studio references — keep the fetch capped
-      // to avoid bloating the RSC payload for prolific brands. We sort by
-      // most-recent so the picker shows fresh inspiration first.
-      supabase
-        .from("competitor_ads")
-        .select(
-          `id, competitor_id, mapped_product_id, title, ad_text, platform, source_url, landing_page_url,
-           competitors!inner ( name ),
-           competitor_ad_asset_links ( assets ( bucket, storage_path ) )`
-        )
-        .eq("brand_id", brandId)
-        .order("created_at", { ascending: false })
-        .limit(60),
-    ]);
+  // Lazy one-time seed: promotes the system category buckets into real
+  // folders + attaches overrides so every template has a folder_id. No-op
+  // after the first call per brand.
+  await ensureTemplateFoldersSeeded(supabase, brandId);
+
+  const [
+    productsResult,
+    icpsResult,
+    templatesResult,
+    templateFoldersResult,
+    templateOverridesResult,
+    competitorAdsResult,
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, short_description")
+      .eq("brand_id", brandId)
+      .is("deleted_at", null)
+      .order("name"),
+    supabase
+      .from("icps")
+      .select(
+        "id, title, summary, product_id, is_primary, pains, desires, objections, triggers"
+      )
+      .eq("brand_id", brandId)
+      .is("archived_at", null)
+      .order("is_primary", { ascending: false })
+      .order("title"),
+    supabase
+      .from("templates")
+      .select("id, key, name, description, category, thumbnail_url, is_system")
+      .or(`brand_id.eq.${brandId},brand_id.is.null`)
+      .eq("is_active", true)
+      // Brand-uploaded templates float to the top so a creator's own
+      // catalog is what they see first; system templates follow.
+      .order("is_system", { ascending: true })
+      .order("name"),
+    supabase
+      .from("template_folders")
+      .select("id, name, sort_order")
+      .eq("brand_id", brandId)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
+    supabase
+      .from("brand_template_overrides")
+      .select("template_id, folder_id, hidden")
+      .eq("brand_id", brandId),
+    // Competitor ads usable as Studio references — keep the fetch capped
+    // to avoid bloating the RSC payload for prolific brands. We sort by
+    // most-recent so the picker shows fresh inspiration first.
+    supabase
+      .from("competitor_ads")
+      .select(
+        `id, competitor_id, mapped_product_id, title, ad_text, platform, source_url, landing_page_url,
+         competitors!inner ( name ),
+         competitor_ad_asset_links ( assets ( bucket, storage_path ) )`
+      )
+      .eq("brand_id", brandId)
+      .order("created_at", { ascending: false })
+      .limit(60),
+  ]);
 
   const productRows = productsResult.data ?? [];
   const imageMap = await fetchPrimaryProductImageUrls(
@@ -164,13 +220,21 @@ export async function getStudioContext(
       objections: row.objections ?? [],
       triggers: row.triggers ?? [],
     })) as IcpOption[],
-    templates: ((templatesResult.data ?? []) as TemplateOption[]).map(
-      (template) => ({
-        ...template,
-        thumbnail_url: resolveTemplateThumbnailUrl(
-          supabase,
-          template.thumbnail_url
-        ),
+    templates: buildTemplateOptions(
+      (templatesResult.data ?? []) as RawTemplateRow[],
+      (templateOverridesResult.data ?? []) as RawTemplateOverrideRow[]
+    ).map((template) => ({
+      ...template,
+      thumbnail_url: resolveTemplateThumbnailUrl(
+        supabase,
+        template.thumbnail_url
+      ),
+    })),
+    templateFolders: ((templateFoldersResult.data ?? []) as TemplateFolder[]).map(
+      (folder) => ({
+        id: folder.id,
+        name: folder.name,
+        sort_order: folder.sort_order,
       })
     ),
     competitorAds: ((competitorAdsResult.data ?? []) as unknown as Array<{

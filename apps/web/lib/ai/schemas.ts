@@ -151,6 +151,25 @@ export const ThreadTitleSchema = z.object({
 export type ThreadTitle = z.infer<typeof ThreadTitleSchema>;
 
 // ---------------------------------------------------------------------------
+// Studio Chat (free-form brainstorming / Q&A replies)
+// ---------------------------------------------------------------------------
+//
+// Used by the "Brainstorm angles" / "Visual concept" starters and any other
+// studio turn that wants a text answer instead of a structured creative
+// payload. Kept as a single `answer` field so the model's output lands
+// verbatim in `messages.content` without being squeezed into the ad-card UI.
+
+export const StudioChatSchema = z.object({
+  answer: z
+    .string()
+    .describe(
+      "A clear, helpful plain-text reply to the user's request. Use markdown for short lists and bold where it aids scanning. Keep it focused and skimmable."
+    ),
+});
+
+export type StudioChat = z.infer<typeof StudioChatSchema>;
+
+// ---------------------------------------------------------------------------
 // Brand Import
 // ---------------------------------------------------------------------------
 

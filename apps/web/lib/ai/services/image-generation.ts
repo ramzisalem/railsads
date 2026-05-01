@@ -13,7 +13,7 @@ export interface GenerateImageParams {
   size?: "1024x1024" | "1536x1024" | "1024x1536";
   /**
    * Public URLs of images to use as visual references. When provided, we call
-   * `images.edit` instead of `images.generate` so `gpt-image-1` preserves the
+   * `images.edit` instead of `images.generate` so `gpt-image-2` preserves the
    * actual look of the real product (label, bottle shape, character, colors)
    * instead of hallucinating a generic version from the prompt text.
    *
@@ -74,7 +74,7 @@ export async function generateImage(
 
     let response;
     if (refs.length > 0) {
-      // gpt-image-1 supports passing real photos as references via images.edit;
+      // gpt-image-2 supports passing real photos as references via images.edit;
       // the model uses them as the visual ground truth for the generation. The
       // text prompt is layered on top to control the scene, lighting, etc.
       const referenceFiles = await Promise.all(
@@ -98,19 +98,19 @@ export async function generateImage(
         })
       );
 
-      // input_fidelity: "high" tells gpt-image-1 to keep the reference pixels
-      // closely — critical for product packaging text. The default ("low")
-      // re-renders text from scratch, producing the gibberish-on-label artifact
-      // ("DIAMWPE F2'FLAVOR" instead of the real copy).
-      // quality: "high" gives the model more compute to render fine details
-      // (small badges, ingredient lists, brand mark strokes) cleanly.
+      // gpt-image-2 processes every reference image at high fidelity by
+      // default — it rejects `input_fidelity`, so we don't pass it here.
+      // That's actually what we want for packaging/label text: the model
+      // preserves the reference pixels instead of re-rendering on-image
+      // copy from scratch (the old gibberish-on-label artifact).
+      // quality: "high" still controls render compute for fine details
+      // (small badges, ingredient lists, brand-mark strokes).
       response = await client.images.edit({
         model: MODELS.image,
         image: referenceFiles,
         prompt: params.prompt,
         n: 1,
         size: params.size ?? "1024x1024",
-        input_fidelity: "high",
         quality: "high",
       });
     } else {
@@ -225,6 +225,9 @@ export async function generateImage(
           reference_rejected_count:
             (params.referenceImageUrls?.length ?? 0) - refs.length,
           prompt_chars: params.prompt.length,
+          // gpt-image-2 always processes references at high fidelity, so
+          // we record "high" whenever we went through the edit path (for
+          // parity with historical gpt-image-1 runs) and null otherwise.
           input_fidelity: refs.length > 0 ? "high" : null,
           quality: "high",
         },

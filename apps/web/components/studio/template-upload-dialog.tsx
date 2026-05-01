@@ -10,12 +10,19 @@ import {
   type FormEvent,
 } from "react";
 import Image from "next/image";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { Folder, ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TemplateOption } from "@/lib/studio/types";
+import type { TemplateFolder, TemplateOption } from "@/lib/studio/types";
 
 interface TemplateUploadDialogProps {
   brandId: string;
+  /** Folders available to place this template into. Must be non-empty —
+   *  the picker refuses to open the dialog if the brand has no folders
+   *  yet. */
+  folders: TemplateFolder[];
+  /** Pre-selected folder id (usually the folder the user is currently
+   *  viewing in the picker). Falls back to the first folder. */
+  initialFolderId?: string | null;
   onClose: () => void;
   onCreated: (template: TemplateOption) => void;
 }
@@ -30,6 +37,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 export function TemplateUploadDialog({
   brandId,
+  folders,
+  initialFolderId,
   onClose,
   onCreated,
 }: TemplateUploadDialogProps) {
@@ -40,6 +49,15 @@ export function TemplateUploadDialog({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Default to the folder the user is already looking at; failing that,
+  // the first folder alphabetically. We never start with "no folder" —
+  // the server requires one on submit.
+  const [folderId, setFolderId] = useState<string>(() => {
+    if (initialFolderId && folders.some((f) => f.id === initialFolderId)) {
+      return initialFolderId;
+    }
+    return folders[0]?.id ?? "";
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +123,10 @@ export function TemplateUploadDialog({
       setError("Add a thumbnail image.");
       return;
     }
+    if (!folderId) {
+      setError("Pick a folder for this template.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -114,6 +136,7 @@ export function TemplateUploadDialog({
       formData.append("brandId", brandId);
       formData.append("name", trimmedName);
       formData.append("description", description.trim());
+      formData.append("folderId", folderId);
       formData.append("file", file);
 
       const res = await fetch("/api/studio/templates", {
@@ -263,6 +286,31 @@ export function TemplateUploadDialog({
 
             <div>
               <label
+                htmlFor="template-folder"
+                className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Folder
+              </label>
+              <div className="relative">
+                <Folder className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <select
+                  id="template-folder"
+                  value={folderId}
+                  onChange={(e) => setFolderId(e.target.value)}
+                  disabled={submitting}
+                  className="w-full appearance-none rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50"
+                >
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label
                 htmlFor="template-description"
                 className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground"
               >
@@ -297,7 +345,7 @@ export function TemplateUploadDialog({
             </button>
             <button
               type="submit"
-              disabled={submitting || !name.trim() || !file}
+              disabled={submitting || !name.trim() || !file || !folderId}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

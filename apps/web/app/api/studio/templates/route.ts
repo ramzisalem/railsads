@@ -60,11 +60,18 @@ export async function POST(request: NextRequest) {
   const brandId = String(formData.get("brandId") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const folderId = String(formData.get("folderId") ?? "").trim() || null;
   const file = formData.get("file");
 
   if (!brandId || !name || !(file instanceof File)) {
     return NextResponse.json(
       { error: "brandId, name, and file are required" },
+      { status: 400 }
+    );
+  }
+  if (!folderId) {
+    return NextResponse.json(
+      { error: "folderId is required — every template must live in a folder" },
       { status: 400 }
     );
   }
@@ -86,6 +93,22 @@ export async function POST(request: NextRequest) {
   const isMember = await verifyBrandMembership(supabase, user.id, brandId);
   if (!isMember) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Verify the folder exists and is brand-scoped before spending any
+  // effort on the upload — bails early on stale UIs pointing at a
+  // deleted folder.
+  const { data: folderRow } = await supabase
+    .from("template_folders")
+    .select("id")
+    .eq("id", folderId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (!folderRow) {
+    return NextResponse.json(
+      { error: "Folder not found" },
+      { status: 400 }
+    );
   }
 
   if (file.size > MAX_BYTES) {
@@ -185,5 +208,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ template: inserted });
+  // Attach the template to its chosen folder. We do this as a separate
+  // override row (instead of a column on `templates`) so the same model
+  // covers moving the template later on without any schema change.
+  const { error: overrideErr } = await supabase
+    .from("brand_template_overrides")
+    .upsert(
+      {
+        brand_id: brandId,
+        template_id: inserted.id,
+        folder_id: folderId,
+        hidden: false,
+      },
+      { onConflict: "brand_id,template_id" }
+    );
+  if (overrideErr) {
+    console.error(
+      "template folder placement failed after upload:",
+      overrideErr
+    );
+    // The template itself is saved and usable — failing the whole request
+    // for a placement glitch would be worse UX than shipping it as-is. The
+    // picker will surface it in its category's auto-seeded folder since
+    // we always ensure seeding ran.
+  }
+
+  return NextResponse.json({
+    template: { ...inserted, folder_id: folderId },
+  });
 }

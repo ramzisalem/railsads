@@ -27,7 +27,11 @@ import { BillingErrorBanner } from "@/components/billing/billing-error-banner";
 interface ThreadContext {
   productId: string;
   icpId?: string | null;
-  templateId?: string | null;
+  /** Ordered list of selected templates. Length > 1 triggers a per-template
+   *  fan-out on the next initial-generation turn (one creative per template,
+   *  each with its own auto-chained image). Length 0 means "no template",
+   *  equivalent to the legacy single-null case. */
+  templateIds: string[];
   angle?: string | null;
   awareness?: string | null;
   referenceCompetitorAdId?: string | null;
@@ -62,13 +66,33 @@ export function Conversation({
   // Composer mode: persisted within a session so toggling "Image only" sticks
   // for follow-ups until the user changes it.
   const [composerMode, setComposerMode] = useState<ComposerMode>("full");
-  // When the auto-chain fires after a creative response, we set this to the
-  // new creative message's id so the AdCard for THAT message can render an
-  // image skeleton in its hero slot. Cleared once the image lands (and
-  // `router.refresh()` brings the new generated_image message into `messages`).
-  const [chainImageForMessageId, setChainImageForMessageId] = useState<
-    string | null
-  >(null);
+  // When the auto-chain fires after a creative response, we record the
+  // new creative message's id so the AdCard for THAT message can render
+  // an image skeleton in its hero slot. Using a set lets the multi-template
+  // fan-out paint skeletons on every pending card concurrently. Ids are
+  // removed once their chained image lands (via `router.refresh()` bringing
+  // the new generated_image message into `messages`).
+  const [chainImageForMessageIds, setChainImageForMessageIds] = useState<
+    Set<string>
+  >(() => new Set());
+
+  function markChainStart(messageId: string) {
+    setChainImageForMessageIds((prev) => {
+      if (prev.has(messageId)) return prev;
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
+  }
+
+  function markChainDone(messageId: string) {
+    setChainImageForMessageIds((prev) => {
+      if (!prev.has(messageId)) return prev;
+      const next = new Set(prev);
+      next.delete(messageId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -156,11 +180,16 @@ export function Conversation({
    * Generate (or revise) the structured creative for the current thread.
    * Returns the new message id + the LLM-suggested `image_prompt` so callers
    * can auto-chain image generation when in `full` mode.
+   *
+   * `templateId` lets the multi-template fan-out run this once per selected
+   * template. Revisions (follow-up turns) ignore it and fall back to the
+   * DB-stored thread context instead.
    */
   async function callCreative(
     userMessage: string,
     attachmentUrls: string[],
-    mode: ComposerMode
+    mode: ComposerMode,
+    templateId: string | null
   ): Promise<{ messageId: string | null; imagePrompt: string | null }> {
     const endpoint = hasAssistantOutput
       ? "/api/creative/revise"
@@ -183,7 +212,7 @@ export function Conversation({
           threadId,
           productId: threadContext.productId,
           icpId: threadContext.icpId,
-          templateId: threadContext.templateId,
+          templateId,
           angle: threadContext.angle,
           awareness: threadContext.awareness,
           mode,
@@ -210,15 +239,69 @@ export function Conversation({
   /**
    * Fire-and-await image generation off an existing prompt. Used both for
    * the auto-chain after creative generation and for explicit
-   * "Generate image" clicks on a creative card.
+   * "Generate image" clicks on a creative card. `templateIdOverride` lets
+   * the multi-template fan-out pin each chained image to the template its
+   * parent creative was generated from.
    */
-  async function generateImageForPrompt(prompt: string): Promise<void> {
+  async function generateImageForPrompt(
+    prompt: string,
+    templateIdOverride?: string | null
+  ): Promise<void> {
     const res = await fetch("/api/image/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, threadId, prompt, size: imageSize }),
+      body: JSON.stringify({
+        brandId,
+        threadId,
+        prompt,
+        size: imageSize,
+        ...(templateIdOverride ? { templateId: templateIdOverride } : {}),
+      }),
     });
     await fetchJson(res);
+  }
+
+  /**
+   * Run a single (creative, optional-image) call against one template.
+   * Isolated so the fan-out can launch N of these concurrently and any one
+   * failing doesn't tank the others — we record a soft error instead.
+   */
+  async function runSingleCreative(
+    userMessage: string,
+    attachmentUrls: string[],
+    mode: ComposerMode,
+    templateId: string | null
+  ) {
+    const { messageId, imagePrompt } = await callCreative(
+      userMessage,
+      attachmentUrls,
+      mode,
+      templateId
+    );
+    router.refresh();
+
+    if (mode === "full" && imagePrompt && messageId) {
+      markChainStart(messageId);
+      try {
+        await generateImageForPrompt(imagePrompt, templateId);
+        router.refresh();
+      } catch (imgErr) {
+        if (isBillingError(imgErr)) {
+          setBillingError(imgErr);
+        } else {
+          setAiError((prev) =>
+            prev
+              ? prev
+              : imgErr instanceof Error
+                ? `Copy ready, but image failed: ${imgErr.message}`
+                : "Copy ready, but image generation failed."
+          );
+        }
+        router.refresh();
+      } finally {
+        markChainDone(messageId);
+      }
+    }
   }
 
   /**
@@ -228,6 +311,12 @@ export function Conversation({
    *   - `copy`  : creative gen only
    *   - `full`  : creative gen, then auto-chain image gen using the LLM's
    *               returned `image_prompt` (skeleton lands on the new card)
+   *
+   * When multiple templates are selected and this is the initial-generation
+   * turn (no prior assistant output), we fan out one creative per template
+   * concurrently so every ad in the batch lands in parallel. Revision turns
+   * always run once — they use the thread's existing creative as the base
+   * instead of a template.
    */
   async function runTurn(
     userMessage: string,
@@ -237,7 +326,7 @@ export function Conversation({
     setIsGenerating(true);
     setAiError(null);
     setBillingError(null);
-    setChainImageForMessageId(null);
+    setChainImageForMessageIds(new Set());
 
     try {
       if (mode === "image") {
@@ -251,32 +340,37 @@ export function Conversation({
         return;
       }
 
-      const { messageId, imagePrompt } = await callCreative(
-        userMessage,
-        attachmentUrls,
-        mode
-      );
-      router.refresh();
+      // Fan-out only applies to the first-generation path; revisions are
+      // single-shot (the model revises the latest creative payload, which
+      // has no notion of "templates").
+      const templateIds = hasAssistantOutput
+        ? [null]
+        : threadContext.templateIds.length > 0
+          ? threadContext.templateIds
+          : [null];
 
-      if (mode === "full" && imagePrompt && messageId) {
-        setChainImageForMessageId(messageId);
-        try {
-          await generateImageForPrompt(imagePrompt);
-          router.refresh();
-        } catch (imgErr) {
-          if (isBillingError(imgErr)) {
-            setBillingError(imgErr);
-          } else {
-            setAiError(
-              imgErr instanceof Error
-                ? `Copy ready, but image failed: ${imgErr.message}`
-                : "Copy ready, but image generation failed."
-            );
-          }
-          router.refresh();
-        } finally {
-          setChainImageForMessageId(null);
+      const settled = await Promise.allSettled(
+        templateIds.map((tid) =>
+          runSingleCreative(userMessage, attachmentUrls, mode, tid)
+        )
+      );
+
+      // Surface the first hard failure so users see *something*, without
+      // making one failed template block the others (successful ones still
+      // wrote their messages through).
+      const firstRejection = settled.find((r) => r.status === "rejected") as
+        | PromiseRejectedResult
+        | undefined;
+      if (firstRejection) {
+        const err = firstRejection.reason;
+        if (isBillingError(err)) {
+          setBillingError(err);
+        } else {
+          setAiError(
+            err instanceof Error ? err.message : "Something went wrong"
+          );
         }
+        router.refresh();
       }
     } catch (err) {
       if (isBillingError(err)) {
@@ -316,12 +410,68 @@ export function Conversation({
   }
 
   /**
-   * Starter prompts (empty-state buttons): kick off generation directly with
-   * the chosen brief, without recording it as a user message bubble — the user
-   * picked an intent, not a sentence they typed.
+   * Starter prompts (empty-state buttons). Two intents:
+   *
+   *  - `creative`: kick off structured ad generation (hook/headline/body/
+   *    image) using the composer mode. No user bubble — the starter IS the
+   *    action and the resulting ad card is the deliverable.
+   *  - `chat`: the user wants a brainstorm / text answer, not a finished
+   *    ad card. We persist the prompt as a user message bubble (so the
+   *    conversation reads as a natural Q&A) and call `/api/studio/chat`,
+   *    which returns a plain-text assistant reply.
+   *
+   * Without this split, the "Brainstorm angles" and "Visual concept"
+   * starters were being force-fit into the creative pipeline and came
+   * back as structured ad cards — confusing because the user asked for
+   * ideation, not a shipped ad.
    */
-  function handleStarter(prompt: string) {
+  function handleStarter(prompt: string, intent: StarterIntent) {
+    if (intent === "chat") {
+      void runChatTurn(prompt);
+      return;
+    }
     runTurn(prompt, [], composerMode);
+  }
+
+  /**
+   * Chat-intent turn: persist the starter prompt as a user message, hit
+   * the chat endpoint, and let the new plain-text assistant message render
+   * as a muted chat bubble in the timeline. Kept separate from `runTurn`
+   * because it bypasses the creative/image pipeline entirely — no
+   * composer mode, no template fan-out, no auto-chained image.
+   */
+  async function runChatTurn(userMessage: string) {
+    setIsGenerating(true);
+    setAiError(null);
+    setBillingError(null);
+    try {
+      const sendResult = await sendMessage(brandId, threadId, userMessage, []);
+      if (sendResult.error) throw new Error(sendResult.error);
+      router.refresh();
+
+      const res = await fetch("/api/studio/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId,
+          threadId,
+          productId: threadContext.productId,
+          icpId: threadContext.icpId,
+          userMessage,
+        }),
+      });
+      await fetchJson(res);
+      router.refresh();
+    } catch (err) {
+      if (isBillingError(err)) {
+        setBillingError(err);
+      } else {
+        setAiError(err instanceof Error ? err.message : "Something went wrong");
+      }
+      router.refresh();
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   /**
@@ -366,7 +516,7 @@ export function Conversation({
     setIsGenerating(true);
     setAiError(null);
     setBillingError(null);
-    if (messageId) setChainImageForMessageId(messageId);
+    if (messageId) markChainStart(messageId);
     try {
       await generateImageForPrompt(prompt);
       router.refresh();
@@ -380,7 +530,7 @@ export function Conversation({
       }
       router.refresh();
     } finally {
-      setChainImageForMessageId(null);
+      if (messageId) markChainDone(messageId);
       setIsGenerating(false);
     }
   }
@@ -394,7 +544,7 @@ export function Conversation({
               key={msg.id}
               message={msg}
               groupedImage={groupedImage ?? null}
-              imageGenerating={chainImageForMessageId === msg.id}
+              imageGenerating={chainImageForMessageIds.has(msg.id)}
               onRegenerateWith={handleRegenerateWith}
               onGenerateImage={handleGenerateImage}
               onOpenImageEditor={(messageId) => setEditorMessageId(messageId)}
@@ -405,7 +555,7 @@ export function Conversation({
               yet for this turn — i.e. we're waiting on the FIRST response.
               Once a creative card lands and we're auto-chaining the image,
               the per-card skeleton in <AdHero /> takes over. */}
-          {isGenerating && !chainImageForMessageId && (
+          {isGenerating && chainImageForMessageIds.size === 0 && (
             <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary-soft/40 px-4 py-3.5">
               <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -481,11 +631,20 @@ export function Conversation({
   );
 }
 
+/**
+ * Each starter declares whether it kicks off a structured creative
+ * generation or a plain chat turn. The two paths produce visibly different
+ * output (ad card vs chat bubble) so picking the wrong intent here is the
+ * kind of mismatch users notice immediately.
+ */
+type StarterIntent = "creative" | "chat";
+
 const STARTER_PROMPTS: {
   label: string;
   description: string;
   prompt: string;
   icon: LucideIcon;
+  intent: StarterIntent;
 }[] = [
   {
     label: "Generate ad creative",
@@ -493,6 +652,7 @@ const STARTER_PROMPTS: {
     prompt:
       "Generate an ad creative for this product targeting the selected audience.",
     icon: Sparkles,
+    intent: "creative",
   },
   {
     label: "Brainstorm angles",
@@ -500,6 +660,7 @@ const STARTER_PROMPTS: {
     prompt:
       "Brainstorm 5 fresh ad angles I could test for this product, with a one-line rationale for each.",
     icon: Wand2,
+    intent: "chat",
   },
   {
     label: "Visual concept",
@@ -507,13 +668,14 @@ const STARTER_PROMPTS: {
     prompt:
       "Describe a striking visual concept for an ad for this product, with composition, mood, and key on-image text.",
     icon: ImageIcon,
+    intent: "chat",
   },
 ];
 
 function EmptyConversation({
   onPick,
 }: {
-  onPick: (prompt: string) => void;
+  onPick: (prompt: string, intent: StarterIntent) => void;
 }) {
   return (
     <div className="flex min-h-[min(20rem,55vw)] items-center justify-center px-2 py-6">
@@ -530,11 +692,11 @@ function EmptyConversation({
         </div>
 
         <div className="space-y-2">
-          {STARTER_PROMPTS.map(({ label, description, prompt, icon: Icon }) => (
+          {STARTER_PROMPTS.map(({ label, description, prompt, icon: Icon, intent }) => (
             <button
               key={label}
               type="button"
-              onClick={() => onPick(prompt)}
+              onClick={() => onPick(prompt, intent)}
               className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">

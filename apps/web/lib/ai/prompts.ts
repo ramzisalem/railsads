@@ -21,6 +21,11 @@ export const PROMPT_VERSIONS = {
   competitor_analysis: "v2.3",
   thread_title: "v1",
   brand_import: "v2",
+  // v1 = free-form text reply, brand + product + (optional) ICP in scope.
+  //      Used by the "Brainstorm angles" / "Visual concept" starters and
+  //      any other studio chat turn that wants a text answer instead of a
+  //      structured creative.
+  studio_chat: "v1",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -585,4 +590,70 @@ ${visualHintBlock}
 Extract the brand name, description, category, positioning, value proposition, tone/personality, visual identity (including colors when you can justify them), and every product you can tie to concrete on-page evidence — especially PDP links, prices, hero images, feature bullets, and longer descriptions.`;
 
   return { system, user };
+}
+
+// ---------------------------------------------------------------------------
+// Studio Chat Prompt (brainstorm / Q&A replies)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a free-form chat prompt anchored to the brand + product + audience.
+ * Unlike `buildCreativeGenerationPrompt`, this does NOT ask the model for a
+ * structured hook/headline/body output — the caller wants a plain text answer
+ * (e.g. 5 brainstormed angles with rationale, a paragraph describing a visual
+ * concept) that'll land as a chat bubble in the conversation.
+ */
+export function buildStudioChatPrompt(opts: {
+  brand: BrandContext;
+  product: ProductContext;
+  icp?: IcpContext;
+  userMessage: string;
+}): { system: string; user: string } {
+  const { brand, product, icp, userMessage } = opts;
+
+  const system = `You are an expert performance-marketing strategist helping a brand team brainstorm ad ideas.
+
+Answer the user's question directly and concretely. Ground every suggestion in the brand + product + audience context they've provided — do not invent facts about the product.
+
+Formatting rules:
+- Use short markdown lists when the user asks for N items ("5 angles", "3 visuals", etc.). Number them.
+- Bold the core concept name / angle label; follow it with a one-line rationale.
+- Keep the total reply under ~250 words — scannable, not a wall of text.
+- No preamble like "Here are..." or "Sure!" — lead with the content.
+- Never output JSON, code blocks, or structured ad copy (hooks/headlines/body). This is a brainstorm, not a finished creative.`;
+
+  const parts: string[] = [];
+  parts.push(`Brand: ${brand.name}`);
+  if (brand.positioning) parts.push(`Positioning: ${brand.positioning}`);
+  if (brand.value_proposition)
+    parts.push(`Value prop: ${brand.value_proposition}`);
+  if (brand.tone_tags?.length)
+    parts.push(`Tone: ${brand.tone_tags.join(", ")}`);
+
+  parts.push("");
+  parts.push(`Product: ${product.name}`);
+  if (product.short_description)
+    parts.push(`Short description: ${product.short_description}`);
+  if (product.description)
+    parts.push(`Description: ${product.description.slice(0, 800)}`);
+  if (product.price) parts.push(`Price: ${product.price}`);
+
+  if (icp) {
+    parts.push("");
+    parts.push(`Audience: ${icp.title}`);
+    if (icp.summary) parts.push(`Summary: ${icp.summary}`);
+    if (icp.pains?.length)
+      parts.push(`Pains: ${icp.pains.slice(0, 5).join("; ")}`);
+    if (icp.desires?.length)
+      parts.push(`Desires: ${icp.desires.slice(0, 5).join("; ")}`);
+    if (icp.objections?.length)
+      parts.push(`Objections: ${icp.objections.slice(0, 5).join("; ")}`);
+    if (icp.triggers?.length)
+      parts.push(`Triggers: ${icp.triggers.slice(0, 5).join("; ")}`);
+  }
+
+  parts.push("");
+  parts.push(`User: ${userMessage}`);
+
+  return { system, user: parts.join("\n") };
 }

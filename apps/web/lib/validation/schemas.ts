@@ -56,6 +56,19 @@ export const creativeReviseSchema = z
     { message: "Send a message or at least one image" }
   );
 
+/**
+ * Studio chat — free-form brainstorming / Q&A turn that returns a plain-text
+ * reply instead of a structured creative. Used by starter intents like
+ * "Brainstorm angles" and "Visual concept".
+ */
+export const studioChatSchema = z.object({
+  brandId: uuid,
+  threadId: uuid,
+  productId: uuid,
+  icpId: optionalUuid,
+  userMessage: z.string().min(1).max(2000),
+});
+
 export const imageGenerateSchema = z.object({
   brandId: uuid,
   threadId: uuid,
@@ -66,6 +79,13 @@ export const imageGenerateSchema = z.object({
    * product hero / recent chat attachments the server resolves automatically.
    */
   referenceImageUrls: z.array(z.string().url()).max(4).optional(),
+  /**
+   * Explicit template override for this one image call. When set, its
+   * thumbnail is used as the layout reference instead of the thread's
+   * primary template — used by the multi-template fan-out so each
+   * chained image matches the creative it came from.
+   */
+  templateId: uuid.nullable().optional(),
 });
 
 export const imageEditSchema = z.object({

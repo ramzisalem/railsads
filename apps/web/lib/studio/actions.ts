@@ -64,6 +64,10 @@ export async function updateThreadContext(
     product_id?: string;
     icp_id?: string | null;
     template_id?: string | null;
+    /** Full ordered selection of templates. When supplied, `template_id`
+     *  is automatically synced to the first element (or null when empty)
+     *  so legacy single-template flows keep functioning. */
+    template_ids?: string[] | null;
     angle?: string | null;
     awareness?: string | null;
     reference_competitor_ad_id?: string | null;
@@ -73,9 +77,20 @@ export async function updateThreadContext(
   const { supabase, user } = await getAuth();
   if (!user) return { error: "Not authenticated" };
 
+  const payload: Record<string, unknown> = { ...data };
+
+  if ("template_ids" in data) {
+    const ids = data.template_ids ?? [];
+    payload.template_ids = ids;
+    // Primary template mirrors the head of the array so downstream
+    // single-template consumers (image generation fallback, exports)
+    // stay coherent with the picker state.
+    payload.template_id = ids[0] ?? null;
+  }
+
   const { error } = await supabase
     .from("threads")
-    .update(data)
+    .update(payload)
     .eq("id", threadId);
 
   if (error) return { error: error.message };

@@ -148,16 +148,28 @@ export async function getSuggestions(
     .is("archived_at", null)
     .limit(10);
 
-  const { data: templates } = await supabase
-    .from("templates")
-    .select("key, name")
-    .or(`brand_id.eq.${brandId},brand_id.is.null`)
-    .eq("is_active", true)
-    .limit(5);
+  const [{ data: templates }, { data: hiddenOverrides }] = await Promise.all([
+    supabase
+      .from("templates")
+      .select("id, key, name")
+      .or(`brand_id.eq.${brandId},brand_id.is.null`)
+      .eq("is_active", true)
+      .limit(10),
+    supabase
+      .from("brand_template_overrides")
+      .select("template_id")
+      .eq("brand_id", brandId)
+      .eq("hidden", true),
+  ]);
 
   const suggestions: SuggestionItem[] = [];
 
-  const templateList = templates ?? [];
+  const hidden = new Set((hiddenOverrides ?? []).map((r) => r.template_id));
+  // Respect per-brand hides so a template the user explicitly removed from
+  // their library doesn't re-surface as a dashboard suggestion.
+  const templateList = (templates ?? [])
+    .filter((t) => !hidden.has(t.id))
+    .slice(0, 5);
   const templateNames = new Map(templateList.map((t) => [t.key, t.name]));
 
   const dayOfYear = Math.floor(

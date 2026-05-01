@@ -16,7 +16,11 @@ export function getOpenAIClient(): OpenAI {
 export const MODELS = {
   premium: "gpt-4.1",
   efficient: "gpt-4.1-mini",
-  image: "gpt-image-1",
+  // gpt-image-2 (released 2026-04-21) is the successor to gpt-image-1.
+  // Same images.generate / images.edit surface; it processes every
+  // reference image at high fidelity by default, so callers must NOT
+  // pass `input_fidelity` (the API rejects it).
+  image: "gpt-image-2",
 } as const;
 
 export type ModelTier = keyof typeof MODELS;

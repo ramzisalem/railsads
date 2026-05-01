@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     angle,
     awareness,
     attachmentUrls,
+    mode,
   } = body;
   const safeAttachmentUrls = filterAllowedAttachmentUrls(attachmentUrls);
 
@@ -37,7 +38,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const gateResponse = await checkCreditGate(brandId, "creative_generation");
+  // "Full" mode is a two-step pipeline (text creative + auto-chained image)
+  // that users think of as a single action. We bill it as one line item —
+  // priced at the image cost, which dominates — and skip the per-step text
+  // charge below so the credit history shows one deduction per creative
+  // instead of two. `copy` mode (text-only) keeps the creative_generation
+  // charge since no image follows.
+  const isFullMode = mode === "full";
+  const billableEvent = isFullMode ? "image_generation" : "creative_generation";
+
+  const gateResponse = await checkCreditGate(brandId, billableEvent);
   if (gateResponse) return gateResponse;
 
   const { data: threadRow } = await supabase
@@ -111,13 +121,19 @@ export async function POST(request: NextRequest) {
       console.error("Thread title generation or update failed:", titleErr);
     }
 
-    await safeTrackUsage({
-      brandId,
-      eventType: "creative_generation",
-      userId: user.id,
-      threadId,
-      aiRunId: runId ?? undefined,
-    });
+    // In full mode the chained image_generation call is the single
+    // billable event for this turn; skip charging here so users don't
+    // see a duplicate "Generated creative" line item alongside the
+    // "Generated image" one for the same ad card.
+    if (!isFullMode) {
+      await safeTrackUsage({
+        brandId,
+        eventType: "creative_generation",
+        userId: user.id,
+        threadId,
+        aiRunId: runId ?? undefined,
+      });
+    }
 
     if (threadRow?.reference_competitor_ad_id) {
       await trackCompetitorEvent(supabase, "studio_used_competitor_reference", {

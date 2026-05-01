@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
   );
   if (validationError) return validationError;
 
-  const { brandId, threadId, prompt, size, referenceImageUrls } = body;
+  const { brandId, threadId, prompt, size, referenceImageUrls, templateId } =
+    body;
 
   const isMember = await verifyBrandMembership(supabase, user.id, brandId);
   if (!isMember) {
@@ -127,8 +128,14 @@ export async function POST(request: NextRequest) {
             thread.reference_competitor_ad_id
           )
         : null,
-      thread?.template_id
-        ? fetchTemplateContext(supabase, thread.template_id)
+      // Per-call `templateId` wins over the thread's primary anchor —
+      // this is how the multi-template fan-out lines up each chained
+      // image with the creative it came from.
+      (templateId ?? thread?.template_id ?? null)
+        ? fetchTemplateContext(
+            supabase,
+            templateId ?? thread!.template_id!
+          )
         : null,
     ]);
 

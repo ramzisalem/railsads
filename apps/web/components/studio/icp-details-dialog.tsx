@@ -1,20 +1,33 @@
 "use client";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Heart,
+  Loader2,
+  Pencil,
   ShieldAlert,
   Sparkles,
   Star,
+  Trash2,
   Users,
   X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import type { IcpOption } from "@/lib/studio/types";
+import { deleteIcp } from "@/lib/products/icp-actions";
 
 interface IcpDetailsDialogProps {
   icp: IcpOption;
   onClose: () => void;
+  /** When provided, the "Edit" action is shown and this runs instead of
+   *  the default details view — usually closing this dialog and opening
+   *  an edit form. */
+  onEdit?: () => void;
+  /** Called after a successful soft-delete so the parent can clear any
+   *  thread-level reference to this audience. */
+  onDeleted?: (icpId: string) => void;
 }
 
 interface SectionProps {
@@ -56,12 +69,42 @@ function Section({ label, icon: Icon, accent, items }: SectionProps) {
   );
 }
 
-export function IcpDetailsDialog({ icp, onClose }: IcpDetailsDialogProps) {
+export function IcpDetailsDialog({
+  icp,
+  onClose,
+  onEdit,
+  onDeleted,
+}: IcpDetailsDialogProps) {
+  const router = useRouter();
+  const [isDeleting, startDelete] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const totalItems =
     icp.pains.length +
     icp.desires.length +
     icp.objections.length +
     icp.triggers.length;
+
+  function handleDelete() {
+    if (
+      !window.confirm(
+        `Delete "${icp.title}"? This audience won't appear in the picker anymore. You can restore it later from the product page.`
+      )
+    ) {
+      return;
+    }
+    setDeleteError(null);
+    startDelete(async () => {
+      const result = await deleteIcp(icp.id, icp.product_id);
+      if (result.error) {
+        setDeleteError(result.error);
+        return;
+      }
+      onDeleted?.(icp.id);
+      router.refresh();
+      onClose();
+    });
+  }
 
   return (
     <>
@@ -114,13 +157,19 @@ export function IcpDetailsDialog({ icp, onClose }: IcpDetailsDialogProps) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              disabled={isDeleting}
+              className="shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
             >
               <X className="h-4 w-4" />
             </button>
           </header>
 
           <div className="flex-1 overflow-y-auto px-5 py-5">
+            {deleteError && (
+              <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {deleteError}
+              </div>
+            )}
             {totalItems === 0 ? (
               <p className="text-small text-muted-foreground">
                 No pains, desires, objections, or triggers yet for this
@@ -155,6 +204,43 @@ export function IcpDetailsDialog({ icp, onClose }: IcpDetailsDialogProps) {
               </div>
             )}
           </div>
+
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-secondary-soft/40 px-5 py-3">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              {isDeleting ? "Deleting…" : "Delete"}
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isDeleting}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                Close
+              </button>
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+              )}
+            </div>
+          </footer>
         </div>
       </div>
     </>

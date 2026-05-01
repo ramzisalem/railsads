@@ -11,10 +11,8 @@ import {
   Maximize2,
   Package,
   Palette,
-  Plus,
   Sparkles,
   Star,
-  Trash2,
   UserRound,
   Users,
   X,
@@ -28,7 +26,6 @@ import {
   type StudioContext,
   type IcpOption,
   type ProductOption,
-  type TemplateOption,
   type CompetitorAdOption,
 } from "@/lib/studio/types";
 import {
@@ -41,9 +38,9 @@ import {
 } from "@/lib/studio/visual-styles";
 import { cn } from "@/lib/utils";
 import { IcpDetailsDialog } from "./icp-details-dialog";
+import { IcpForm } from "@/components/products/icp-form";
 import { AspectRatioGlyph } from "./aspect-ratio-glyph";
-import { TemplateUploadDialog } from "./template-upload-dialog";
-import { TemplatePreviewDialog } from "./template-preview-dialog";
+import { TemplateSection } from "./template-section";
 
 type SectionId =
   | "product"
@@ -77,44 +74,6 @@ export function ContextPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [openSection, setOpenSection] = useState<SectionId | null>("product");
-  const [showTemplateUpload, setShowTemplateUpload] = useState(false);
-  const [previewTemplate, setPreviewTemplate] = useState<TemplateOption | null>(
-    null
-  );
-  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(
-    null
-  );
-
-  async function deleteTemplate(template: TemplateOption) {
-    if (template.is_system) return;
-    if (
-      !window.confirm(
-        `Delete the "${template.name}" template? This can't be undone.`
-      )
-    ) {
-      return;
-    }
-    setDeletingTemplateId(template.id);
-    try {
-      const res = await fetch(
-        `/api/studio/templates/${template.id}?brandId=${encodeURIComponent(
-          thread.brand_id
-        )}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        const json = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(json.error || "Failed to delete template");
-        return;
-      }
-      // If the deleted template was selected on this thread, the FK has
-      // already nulled out template_id server-side; refresh so the panel
-      // reflects both the dropped template and the new selection state.
-      router.refresh();
-    } finally {
-      setDeletingTemplateId(null);
-    }
-  }
 
   const icpsForProduct = context.icps.filter(
     (i) => i.product_id === thread.product_id
@@ -141,9 +100,14 @@ export function ContextPanel({
     (p) => p.id === thread.product_id
   );
   const selectedIcp = icpsForProduct.find((i) => i.id === thread.icp_id);
-  const selectedTemplate = context.templates.find(
-    (t) => t.id === thread.template_id
-  );
+  const selectedTemplateIds = thread.template_ids ?? [];
+  // Preserve the selection order so the picker and the downstream
+  // fan-out reflect the order the user added templates in.
+  const selectedTemplates = selectedTemplateIds
+    .map((id) => context.templates.find((t) => t.id === id) ?? null)
+    .filter((t): t is NonNullable<typeof t> => t !== null);
+  const primaryTemplate = selectedTemplates[0] ?? null;
+  const extraTemplatesCount = Math.max(0, selectedTemplates.length - 1);
   const selectedReference = referenceAds.find(
     (a) => a.id === thread.reference_competitor_ad_id
   );
@@ -229,10 +193,20 @@ export function ContextPanel({
                 {icpsForProduct.map((i) => (
                   <IcpCard
                     key={i.id}
+                    brandId={thread.brand_id}
                     icp={i}
                     selected={i.id === thread.icp_id}
                     disabled={isPending}
                     onSelect={() => update({ icp_id: i.id })}
+                    onDeleted={(deletedId) => {
+                      // The audience is gone from the picker now; if it
+                      // was the thread's selection, drop the anchor so
+                      // the next generation doesn't try to use a
+                      // soft-deleted row.
+                      if (thread.icp_id === deletedId) {
+                        update({ icp_id: null });
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -304,37 +278,60 @@ export function ContextPanel({
 
           <Section
             id="template"
-            label="Template"
+            label={
+              selectedTemplates.length > 1
+                ? `Templates · ${selectedTemplates.length}`
+                : "Template"
+            }
             icon={LayoutTemplate}
             open={openSection === "template"}
             onToggle={() => toggle("template")}
-            modified={!!selectedTemplate}
+            modified={selectedTemplates.length > 0}
             summary={
-              selectedTemplate ? (
+              primaryTemplate ? (
                 <ThumbSummary
-                  imageUrl={selectedTemplate.thumbnail_url}
+                  imageUrl={primaryTemplate.thumbnail_url}
                   fallbackIcon={LayoutTemplate}
-                  text={selectedTemplate.name}
+                  text={
+                    extraTemplatesCount > 0
+                      ? `${primaryTemplate.name} +${extraTemplatesCount} more`
+                      : primaryTemplate.name
+                  }
                 />
               ) : (
                 <MutedSummary text="None" />
               )
             }
             onClear={
-              thread.template_id
-                ? () => update({ template_id: null })
+              selectedTemplates.length > 0
+                ? () => update({ template_ids: [] })
                 : undefined
             }
           >
-            <TemplateGrid
+            {selectedTemplates.length > 1 && (
+              <p className="mb-3 rounded-lg border border-primary/30 bg-primary-soft/40 px-3 py-2 text-xs text-primary">
+                {selectedTemplates.length} templates selected — one creative
+                will be generated for each.
+              </p>
+            )}
+            <TemplateSection
+              brandId={thread.brand_id}
               templates={context.templates}
-              selectedId={thread.template_id}
+              folders={context.templateFolders}
+              selectedIds={selectedTemplateIds}
               disabled={isPending}
-              deletingId={deletingTemplateId}
-              onSelect={(t) => update({ template_id: t.id })}
-              onAdd={() => setShowTemplateUpload(true)}
-              onPreview={(t) => setPreviewTemplate(t)}
-              onDelete={(t) => deleteTemplate(t)}
+              onToggle={(t) =>
+                update({
+                  template_ids: toggleTemplate(selectedTemplateIds, t.id),
+                })
+              }
+              onSelectedTemplateRemoved={(removedId) =>
+                update({
+                  template_ids: selectedTemplateIds.filter(
+                    (id) => id !== removedId
+                  ),
+                })
+              }
             />
           </Section>
 
@@ -467,30 +464,6 @@ export function ContextPanel({
           </Section>
         </SectionGroup>
       </div>
-
-      {showTemplateUpload && (
-        <TemplateUploadDialog
-          brandId={thread.brand_id}
-          onClose={() => setShowTemplateUpload(false)}
-          onCreated={(template) => {
-            setShowTemplateUpload(false);
-            // Auto-select the newly created template — the user just put
-            // effort into uploading it, so the obvious next intent is to
-            // generate with it.
-            startTransition(async () => {
-              await updateThreadContext(thread.id, { template_id: template.id });
-              router.refresh();
-            });
-          }}
-        />
-      )}
-
-      {previewTemplate && (
-        <TemplatePreviewDialog
-          template={previewTemplate}
-          onClose={() => setPreviewTemplate(null)}
-        />
-      )}
     </div>
   );
 }
@@ -618,6 +591,15 @@ function Section({
       )}
     </div>
   );
+}
+
+function toggleTemplate(current: string[], templateId: string): string[] {
+  // Preserves selection order so the fan-out in Conversation matches the
+  // order the user added templates in (visible as numeric badges on the
+  // tiles). Duplicate clicks remove the id.
+  return current.includes(templateId)
+    ? current.filter((id) => id !== templateId)
+    : [...current, templateId];
 }
 
 function MutedSummary({ text }: { text: string }) {
@@ -907,17 +889,23 @@ function ProductCard({
 }
 
 function IcpCard({
+  brandId,
   icp,
   selected,
   disabled,
   onSelect,
+  onDeleted,
 }: {
+  brandId: string;
   icp: IcpOption;
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
+  onDeleted?: (icpId: string) => void;
 }) {
+  const router = useRouter();
   const [showDetails, setShowDetails] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   function handleSelect() {
     if (!disabled) onSelect();
@@ -986,182 +974,47 @@ function IcpCard({
         </div>
       </div>
       {showDetails && (
-        <IcpDetailsDialog icp={icp} onClose={() => setShowDetails(false)} />
+        <IcpDetailsDialog
+          icp={icp}
+          onClose={() => setShowDetails(false)}
+          onEdit={() => {
+            setShowDetails(false);
+            setShowEdit(true);
+          }}
+          onDeleted={onDeleted}
+        />
+      )}
+      {showEdit && (
+        <IcpForm
+          brandId={brandId}
+          productId={icp.product_id}
+          // Adapt the lighter `IcpOption` shape to the form's full
+          // `IcpItem` signature — source/created_at/updated_at aren't
+          // read by the form but satisfy the type.
+          icp={{
+            id: icp.id,
+            product_id: icp.product_id,
+            title: icp.title,
+            summary: icp.summary,
+            pains: icp.pains,
+            desires: icp.desires,
+            objections: icp.objections,
+            triggers: icp.triggers,
+            is_primary: icp.is_primary,
+            source: "manual",
+            created_at: "",
+            updated_at: "",
+          }}
+          onClose={() => {
+            setShowEdit(false);
+            // The form's server action only revalidates `/products/:id`,
+            // so the Studio RSC still holds the pre-edit copy. Refresh
+            // defensively on close (harmless when the user cancels).
+            router.refresh();
+          }}
+        />
       )}
     </>
-  );
-}
-
-function TemplateGrid({
-  templates,
-  selectedId,
-  disabled,
-  deletingId,
-  onSelect,
-  onAdd,
-  onPreview,
-  onDelete,
-}: {
-  templates: TemplateOption[];
-  selectedId: string | null;
-  disabled?: boolean;
-  deletingId: string | null;
-  onSelect: (t: TemplateOption) => void;
-  onAdd: () => void;
-  onPreview: (t: TemplateOption) => void;
-  onDelete: (t: TemplateOption) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-2.5">
-      <AddTemplateTile disabled={disabled} onClick={onAdd} />
-      {templates.map((t) => (
-        <TemplateTile
-          key={t.id}
-          template={t}
-          selected={t.id === selectedId}
-          disabled={disabled}
-          deleting={deletingId === t.id}
-          onSelect={() => onSelect(t)}
-          onPreview={() => onPreview(t)}
-          onDelete={() => onDelete(t)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function AddTemplateTile({
-  disabled,
-  onClick,
-}: {
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "group relative flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card text-muted-foreground transition-colors",
-        "hover:border-primary/40 hover:bg-primary-soft/20 hover:text-foreground",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-        "disabled:pointer-events-none disabled:opacity-50"
-      )}
-    >
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-soft text-foreground transition-colors group-hover:bg-primary-soft group-hover:text-primary">
-        <Plus className="h-4 w-4" />
-      </span>
-      <span className="text-[11px] font-medium uppercase tracking-wide">
-        Add template
-      </span>
-    </button>
-  );
-}
-
-function TemplateTile({
-  template,
-  selected,
-  disabled,
-  deleting,
-  onSelect,
-  onPreview,
-  onDelete,
-}: {
-  template: TemplateOption;
-  selected: boolean;
-  disabled?: boolean;
-  deleting?: boolean;
-  onSelect: () => void;
-  onPreview: () => void;
-  onDelete: () => void;
-}) {
-  const canDelete = !template.is_system;
-  return (
-    <div
-      className={cn(
-        "group relative aspect-square w-full overflow-hidden rounded-xl border bg-card transition-colors",
-        selected
-          ? "border-primary/60 ring-2 ring-primary/40"
-          : "border-border hover:border-primary/35"
-      )}
-    >
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onSelect}
-        aria-pressed={selected}
-        title={template.name}
-        className={cn(
-          "block h-full w-full text-left",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-inset"
-        )}
-      >
-        <div className="relative h-full w-full bg-secondary-soft">
-          {template.thumbnail_url ? (
-            <Image
-              src={template.thumbnail_url}
-              alt={template.name}
-              fill
-              sizes="(max-width: 768px) 50vw, 200px"
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-              <LayoutTemplate className="h-6 w-6" />
-            </div>
-          )}
-        </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/85 via-foreground/40 to-transparent px-2.5 pb-2 pt-6">
-          <div className="line-clamp-1 text-[11px] font-semibold text-background">
-            {template.name}
-          </div>
-          {!template.is_system && (
-            <div className="mt-0.5 inline-flex items-center rounded-full bg-background/20 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-background">
-              Custom
-            </div>
-          )}
-        </div>
-        {selected && (
-          <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-            <Check className="h-3 w-3" />
-          </span>
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onPreview();
-        }}
-        aria-label={`Preview ${template.name}`}
-        title="Preview"
-        className="absolute left-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-foreground group-hover:opacity-100 focus-visible:opacity-100"
-      >
-        <Maximize2 className="h-3 w-3" />
-      </button>
-      {canDelete && (
-        <button
-          type="button"
-          disabled={disabled || deleting}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label={`Delete ${template.name}`}
-          className={cn(
-            "absolute right-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-destructive group-hover:opacity-100 focus-visible:opacity-100",
-            // When the tile is selected the check badge takes the top-right
-            // slot, so shift the delete button just below it to avoid overlap.
-            selected ? "top-9" : "top-2",
-            "disabled:pointer-events-none disabled:opacity-30"
-          )}
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      )}
-    </div>
   );
 }
 
