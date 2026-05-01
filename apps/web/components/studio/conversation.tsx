@@ -15,7 +15,10 @@ import { ChatInput } from "./chat-input";
 import { ImageEditDialog, type ImageVersion } from "./image-edit-dialog";
 import { sendMessage, saveCreativeVersion } from "@/lib/studio/actions";
 import type { GeneratedImage, MessageItem } from "@/lib/studio/types";
-import type { ImageGenSize } from "@/lib/studio/image-gen-sizes";
+import {
+  DEFAULT_IMAGE_GEN_SIZE,
+  type ImageGenSize,
+} from "@/lib/studio/image-gen-sizes";
 import type { ComposerMode } from "@/lib/validation/schemas";
 import {
   BillingError,
@@ -37,17 +40,29 @@ interface ThreadContext {
   referenceCompetitorAdId?: string | null;
 }
 
+/** Drives the in-thread loading skeleton copy — must match the actual API
+ *  path (chat vs creative vs image) so users aren't told we're "crafting
+ *  a creative" when we're only running a text brainstorm. */
+type LoadingPhase = "chat" | "image" | "copy" | "full";
+
+const LOADING_TITLE: Record<LoadingPhase, string> = {
+  chat: "Working on your answer",
+  image: "Generating your image",
+  copy: "Writing your ad copy",
+  full: "Crafting your creative",
+};
+
 interface ConversationProps {
   brandId: string;
   threadId: string;
   messages: MessageItem[];
   threadContext: ThreadContext;
   /**
-   * Image aspect ratio for new generations / edits. Owned by the parent
-   * (`ThreadWorkspace`) so the side-panel ratio picker drives every image
-   * call kicked off from this conversation.
+   * Selected output ratios (multi). Owned by `ThreadWorkspace`; initial
+   * creative/image runs fan out one job per size (× each template on first
+   * generation).
    */
-  imageSize: ImageGenSize;
+  imageSizes: ImageGenSize[];
 }
 
 export function Conversation({
@@ -55,11 +70,12 @@ export function Conversation({
   threadId,
   messages,
   threadContext,
-  imageSize,
+  imageSizes,
 }: ConversationProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase | null>(null);
+  const isGenerating = loadingPhase !== null;
   const [aiError, setAiError] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<BillingError | null>(null);
   const [editorMessageId, setEditorMessageId] = useState<string | null>(null);
@@ -96,7 +112,7 @@ export function Conversation({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, isGenerating]);
+  }, [messages.length, loadingPhase]);
 
   const hasMessages = messages.length > 0;
   const hasAssistantOutput = messages.some(
@@ -243,10 +259,15 @@ export function Conversation({
    * the multi-template fan-out pin each chained image to the template its
    * parent creative was generated from.
    */
+  const effectiveImageSizes =
+    imageSizes.length > 0 ? imageSizes : [DEFAULT_IMAGE_GEN_SIZE];
+
   async function generateImageForPrompt(
     prompt: string,
-    templateIdOverride?: string | null
+    templateIdOverride?: string | null,
+    sizeOverride?: ImageGenSize
   ): Promise<void> {
+    const size = sizeOverride ?? effectiveImageSizes[0];
     const res = await fetch("/api/image/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -254,7 +275,7 @@ export function Conversation({
         brandId,
         threadId,
         prompt,
-        size: imageSize,
+        size,
         ...(templateIdOverride ? { templateId: templateIdOverride } : {}),
       }),
     });
@@ -262,15 +283,15 @@ export function Conversation({
   }
 
   /**
-   * Run a single (creative, optional-image) call against one template.
-   * Isolated so the fan-out can launch N of these concurrently and any one
-   * failing doesn't tank the others — we record a soft error instead.
+   * Run a single (creative, optional-image) call for one template (or `null`
+   * on revisions) and one output **aspect size** for the chained image.
    */
   async function runSingleCreative(
     userMessage: string,
     attachmentUrls: string[],
     mode: ComposerMode,
-    templateId: string | null
+    templateId: string | null,
+    imageSize: ImageGenSize
   ) {
     const { messageId, imagePrompt } = await callCreative(
       userMessage,
@@ -283,7 +304,7 @@ export function Conversation({
     if (mode === "full" && imagePrompt && messageId) {
       markChainStart(messageId);
       try {
-        await generateImageForPrompt(imagePrompt, templateId);
+        await generateImageForPrompt(imagePrompt, templateId, imageSize);
         router.refresh();
       } catch (imgErr) {
         if (isBillingError(imgErr)) {
@@ -312,18 +333,19 @@ export function Conversation({
    *   - `full`  : creative gen, then auto-chain image gen using the LLM's
    *               returned `image_prompt` (skeleton lands on the new card)
    *
-   * When multiple templates are selected and this is the initial-generation
-   * turn (no prior assistant output), we fan out one creative per template
-   * concurrently so every ad in the batch lands in parallel. Revision turns
-   * always run once — they use the thread's existing creative as the base
-   * instead of a template.
+   * Initial `full` runs fan out one job per **(template × selected ratio)**;
+   * image-only runs one job per **selected ratio**. `copy` mode fans by
+   * template only (ratio does not apply). Revisions use `[null]` templates but
+   * still fan across each selected ratio for `full`.
    */
   async function runTurn(
     userMessage: string,
     attachmentUrls: string[],
     mode: ComposerMode
   ) {
-    setIsGenerating(true);
+    setLoadingPhase(
+      mode === "image" ? "image" : mode === "copy" ? "copy" : "full"
+    );
     setAiError(null);
     setBillingError(null);
     setChainImageForMessageIds(new Set());
@@ -335,23 +357,50 @@ export function Conversation({
             "Type what you want to see in the image to use Image-only mode."
           );
         }
-        await generateImageForPrompt(userMessage);
+        const settledImg = await Promise.allSettled(
+          effectiveImageSizes.map((size) =>
+            generateImageForPrompt(userMessage, undefined, size)
+          )
+        );
+        const firstImgFail = settledImg.find((r) => r.status === "rejected") as
+          | PromiseRejectedResult
+          | undefined;
+        if (firstImgFail) {
+          const err = firstImgFail.reason;
+          if (isBillingError(err)) setBillingError(err);
+          else
+            setAiError(
+              err instanceof Error ? err.message : "Image generation failed"
+            );
+        }
         router.refresh();
         return;
       }
 
-      // Fan-out only applies to the first-generation path; revisions are
-      // single-shot (the model revises the latest creative payload, which
-      // has no notion of "templates").
+      // Fan-out: every (template × ratio) on first generation; on revisions,
+      // templateIds is `[null]` but we still fan out one revision+image per
+      // selected ratio.
       const templateIds = hasAssistantOutput
         ? [null]
         : threadContext.templateIds.length > 0
           ? threadContext.templateIds
           : [null];
 
+      // Copy-only mode ignores aspect ratio (no image) — one structured
+      // creative per template, not one per ratio.
+      const sizesForCreative =
+        mode === "copy" ? [effectiveImageSizes[0]] : effectiveImageSizes;
+
+      const jobs: { tid: string | null; size: ImageGenSize }[] = [];
+      for (const tid of templateIds) {
+        for (const size of sizesForCreative) {
+          jobs.push({ tid, size });
+        }
+      }
+
       const settled = await Promise.allSettled(
-        templateIds.map((tid) =>
-          runSingleCreative(userMessage, attachmentUrls, mode, tid)
+        jobs.map(({ tid, size }) =>
+          runSingleCreative(userMessage, attachmentUrls, mode, tid, size)
         )
       );
 
@@ -380,7 +429,7 @@ export function Conversation({
       }
       router.refresh();
     } finally {
-      setIsGenerating(false);
+      setLoadingPhase(null);
     }
   }
 
@@ -430,7 +479,7 @@ export function Conversation({
       void runChatTurn(prompt);
       return;
     }
-    runTurn(prompt, [], composerMode);
+    void runTurn(prompt, [], composerMode);
   }
 
   /**
@@ -441,7 +490,7 @@ export function Conversation({
    * composer mode, no template fan-out, no auto-chained image.
    */
   async function runChatTurn(userMessage: string) {
-    setIsGenerating(true);
+    setLoadingPhase("chat");
     setAiError(null);
     setBillingError(null);
     try {
@@ -470,7 +519,7 @@ export function Conversation({
       }
       router.refresh();
     } finally {
-      setIsGenerating(false);
+      setLoadingPhase(null);
     }
   }
 
@@ -513,7 +562,7 @@ export function Conversation({
    * `messageId` lets us pin the skeleton to the originating card.
    */
   async function handleGenerateImage(prompt: string, messageId?: string) {
-    setIsGenerating(true);
+    setLoadingPhase("image");
     setAiError(null);
     setBillingError(null);
     if (messageId) markChainStart(messageId);
@@ -531,7 +580,7 @@ export function Conversation({
       router.refresh();
     } finally {
       if (messageId) markChainDone(messageId);
-      setIsGenerating(false);
+      setLoadingPhase(null);
     }
   }
 
@@ -551,11 +600,11 @@ export function Conversation({
             />
           ))}
 
-          {/* Show the "crafting" indicator only when nothing has rendered
-              yet for this turn — i.e. we're waiting on the FIRST response.
-              Once a creative card lands and we're auto-chaining the image,
-              the per-card skeleton in <AdHero /> takes over. */}
-          {isGenerating && chainImageForMessageIds.size === 0 && (
+          {/* Loading skeleton: copy matches the active pipeline (chat vs
+              copy-only creative vs full creative vs image-only). Once a
+              creative card lands and we're auto-chaining the image, the
+              per-card skeleton in <AdHero /> takes over. */}
+          {loadingPhase && chainImageForMessageIds.size === 0 && (
             <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary-soft/40 px-4 py-3.5">
               <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -563,7 +612,7 @@ export function Conversation({
               </span>
               <div className="min-w-0 flex-1 pt-1">
                 <div className="text-sm font-medium text-foreground">
-                  Crafting your creative
+                  {LOADING_TITLE[loadingPhase]}
                 </div>
                 <div className="mt-2 space-y-1.5">
                   <span className="block h-2 w-3/4 animate-pulse rounded-full bg-muted" />

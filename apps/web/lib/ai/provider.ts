@@ -1,6 +1,8 @@
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 let _client: OpenAI | null = null;
+let _gemini: GoogleGenAI | null = null;
 
 export function getOpenAIClient(): OpenAI {
   if (!_client) {
@@ -13,14 +15,25 @@ export function getOpenAIClient(): OpenAI {
   return _client;
 }
 
+/** Gemini client for image generation (Nano Banana 2). Uses `GEMINI_API_KEY`. */
+export function getGeminiImageClient(): GoogleGenAI {
+  if (!_gemini) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "GEMINI_API_KEY environment variable is not set (required for image generation)"
+      );
+    }
+    _gemini = new GoogleGenAI({ apiKey });
+  }
+  return _gemini;
+}
+
 export const MODELS = {
   premium: "gpt-4.1",
   efficient: "gpt-4.1-mini",
-  // gpt-image-2 (released 2026-04-21) is the successor to gpt-image-1.
-  // Same images.generate / images.edit surface; it processes every
-  // reference image at high fidelity by default, so callers must NOT
-  // pass `input_fidelity` (the API rejects it).
-  image: "gpt-image-2",
+  /** Nano Banana 2 — Gemini 3.1 Flash Image Preview (Google AI image API). */
+  image: "gemini-3.1-flash-image-preview",
 } as const;
 
 export type ModelTier = keyof typeof MODELS;

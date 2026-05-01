@@ -29,6 +29,7 @@ import {
   type CompetitorAdOption,
 } from "@/lib/studio/types";
 import {
+  DEFAULT_IMAGE_GEN_SIZE,
   IMAGE_GEN_RATIO_OPTIONS,
   type ImageGenSize,
 } from "@/lib/studio/image-gen-sizes";
@@ -55,8 +56,10 @@ type SectionId =
 interface ContextPanelProps {
   thread: ThreadDetail;
   context: StudioContext;
-  imageSize: ImageGenSize;
-  onImageSizeChange: (size: ImageGenSize) => void;
+  /** Ordered selected output ratios; at least one. Generation fans out one
+   *  creative (or image) per size × template on initial turns. */
+  imageSizes: ImageGenSize[];
+  onToggleImageSize: (size: ImageGenSize) => void;
 }
 
 /**
@@ -68,8 +71,8 @@ interface ContextPanelProps {
 export function ContextPanel({
   thread,
   context,
-  imageSize,
-  onImageSizeChange,
+  imageSizes,
+  onToggleImageSize,
 }: ContextPanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -114,9 +117,21 @@ export function ContextPanel({
   const selectedAwareness = AWARENESS_LEVELS.find(
     (l) => l.value === thread.awareness
   );
-  const selectedRatio = IMAGE_GEN_RATIO_OPTIONS.find(
-    (o) => o.size === imageSize
+  const imageSizeSet = new Set(imageSizes);
+  const ratioSummaryText =
+    imageSizes.length === 0
+      ? "—"
+      : imageSizes
+          .map(
+            (s) => IMAGE_GEN_RATIO_OPTIONS.find((o) => o.size === s)?.label ?? s
+          )
+          .join(" · ");
+  const primaryRatioOption = IMAGE_GEN_RATIO_OPTIONS.find((o) =>
+    imageSizeSet.has(o.size)
   );
+  const ratioModified =
+    imageSizes.length > 1 ||
+    (imageSizes.length === 1 && imageSizes[0] !== DEFAULT_IMAGE_GEN_SIZE);
   const selectedVisualStyle = getVisualStylePreset(thread.visual_style);
 
   return (
@@ -423,28 +438,36 @@ export function ContextPanel({
             icon={Maximize2}
             open={openSection === "ratio"}
             onToggle={() => toggle("ratio")}
-            modified={false}
+            modified={ratioModified}
             summary={
-              selectedRatio ? (
+              primaryRatioOption ? (
                 <ChipSummary
                   iconNode={
-                    <AspectRatioGlyph ratio={selectedRatio.ratioGlyph} />
+                    <AspectRatioGlyph ratio={primaryRatioOption.ratioGlyph} />
                   }
-                  text={selectedRatio.label}
+                  text={
+                    imageSizes.length > 1
+                      ? `${primaryRatioOption.label} +${imageSizes.length - 1}`
+                      : ratioSummaryText
+                  }
                 />
               ) : (
                 <MutedSummary text="—" />
               )
             }
           >
+            <p className="mb-2.5 px-1 text-[11px] leading-snug text-muted-foreground">
+              Pick one or more — each ratio runs a separate generation (× each
+              selected template on the first run).
+            </p>
             <div className="grid grid-cols-3 gap-2.5">
               {IMAGE_GEN_RATIO_OPTIONS.map((opt) => {
-                const isSel = opt.size === imageSize;
+                const isSel = imageSizeSet.has(opt.size);
                 return (
                   <button
                     key={opt.size}
                     type="button"
-                    onClick={() => onImageSizeChange(opt.size)}
+                    onClick={() => onToggleImageSize(opt.size)}
                     className={cn(
                       "flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",

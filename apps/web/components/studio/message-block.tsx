@@ -12,12 +12,79 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
+import Markdown from "react-markdown";
+import type { Components } from "react-markdown";
 import type {
   GeneratedImage,
   MessageItem,
   StructuredPayload,
 } from "@/lib/studio/types";
 import { cn } from "@/lib/utils";
+
+/** Plain-text assistant replies (e.g. studio chat / brainstorm) often use
+ *  markdown per the prompt schema. Render them as real elements instead of
+ *  showing literal `**` in the bubble. */
+const ASSISTANT_MARKDOWN_COMPONENTS: Partial<Components> = {
+  p: ({ children }) => (
+    <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-semibold text-foreground">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="italic text-foreground/90">{children}</em>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 list-decimal space-y-2 pl-5 marker:text-muted-foreground last:mb-0">
+      {children}
+    </ol>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-2 list-disc space-y-2 pl-5 marker:text-muted-foreground last:mb-0">
+      {children}
+    </ul>
+  ),
+  li: ({ children }) => (
+    <li className="leading-relaxed [&>p]:mb-1 [&>p:last-child]:mb-0">
+      {children}
+    </li>
+  ),
+  h1: ({ children }) => (
+    <h3 className="mt-3 mb-2 text-sm font-semibold first:mt-0">{children}</h3>
+  ),
+  h2: ({ children }) => (
+    <h3 className="mt-3 mb-2 text-sm font-semibold first:mt-0">{children}</h3>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mt-3 mb-2 text-sm font-semibold first:mt-0">{children}</h3>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">
+      {children}
+    </code>
+  ),
+  a: ({ href, children }) => {
+    const h = href?.trim() ?? "";
+    const allowed =
+      h.startsWith("https://") ||
+      h.startsWith("http://") ||
+      h.startsWith("/") ||
+      h.startsWith("mailto:");
+    if (!allowed) {
+      return <span className="text-muted-foreground">{children}</span>;
+    }
+    return (
+      <a
+        href={h}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-primary underline underline-offset-2"
+      >
+        {children}
+      </a>
+    );
+  },
+};
 
 interface MessageBlockProps {
   message: MessageItem;
@@ -181,7 +248,9 @@ function AssistantMessage({
   if (!payload && content) {
     return (
       <div className="rounded-2xl bg-muted px-5 py-4 sm:px-6 sm:py-5">
-        <p className="text-sm whitespace-pre-wrap">{content}</p>
+        <div className="text-sm text-foreground">
+          <Markdown components={ASSISTANT_MARKDOWN_COMPONENTS}>{content}</Markdown>
+        </div>
       </div>
     );
   }

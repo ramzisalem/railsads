@@ -1,21 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { toFile } from "openai";
+import type { Part } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getOpenAIClient, MODELS } from "../provider";
+import { getGeminiImageClient, MODELS } from "../provider";
 import { createAiRun, completeAiRun, failAiRun } from "../tracking";
 import { partitionAllowedReferenceImageUrls } from "@/lib/studio/chat-attachment-url";
+import {
+  imageGenSizeToGeminiAspectRatio,
+  type ImageGenSize,
+} from "@/lib/studio/image-gen-sizes";
 
 export interface GenerateImageParams {
   brandId: string;
   threadId: string;
   prompt: string;
   userId: string;
-  size?: "1024x1024" | "1536x1024" | "1024x1536";
+  size?: ImageGenSize;
   /**
-   * Public URLs of images to use as visual references. When provided, we call
-   * `images.edit` instead of `images.generate` so `gpt-image-2` preserves the
-   * actual look of the real product (label, bottle shape, character, colors)
-   * instead of hallucinating a generic version from the prompt text.
+   * Public URLs of images to use as visual references. When provided, we send
+   * them as Gemini `inlineData` parts before the text prompt so Nano Banana 2
+   * can condition on real product pixels (same intent as the old OpenAI
+   * `images.edit` path).
    *
    * Typically: [productHeroImage, ...recentChatAttachments]. Capped at 4.
    */
@@ -36,6 +40,48 @@ export interface GenerateImageResult {
   runId: string | null;
 }
 
+function mimeFromContentType(contentType: string): string {
+  const ct = contentType.toLowerCase();
+  if (ct.includes("jpeg") || ct.includes("jpg")) return "image/jpeg";
+  if (ct.includes("webp")) return "image/webp";
+  return "image/png";
+}
+
+function extractImageFromGeminiResponse(response: {
+  candidates?: Array<{
+    content?: { parts?: Part[] };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string; blockReasonMessage?: string };
+}): Buffer {
+  const pf = response.promptFeedback;
+  if (pf?.blockReason) {
+    const msg = pf.blockReasonMessage
+      ? `${pf.blockReason}: ${pf.blockReasonMessage}`
+      : String(pf.blockReason);
+    throw new Error(`Image prompt blocked (${msg})`);
+  }
+
+  const candidate = response.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+
+  for (const part of parts) {
+    const data = part.inlineData?.data;
+    if (data) {
+      return Buffer.from(data, "base64");
+    }
+  }
+
+  const finish = candidate?.finishReason;
+  if (finish && finish !== "STOP") {
+    throw new Error(
+      `No image in model response (finishReason=${finish}). Try adjusting the prompt.`
+    );
+  }
+
+  throw new Error("No image data returned from Gemini");
+}
+
 export async function generateImage(
   supabase: SupabaseClient,
   params: GenerateImageParams
@@ -46,24 +92,16 @@ export async function generateImage(
     threadId: params.threadId,
     serviceType,
     model: MODELS.image,
-    // v1.2 = SSRF allowlist + collision-proof storage path + richer
-    // response_payload (size, mode, ref_count, prompt length). Bump whenever
-    // we change anything that affects the generated artifact OR the
-    // observability shape of an image_generation run.
-    promptVersion: serviceType === "image_edit" ? "1.2-edit" : "1.2",
+    // Bump when switching image backends or changing observability fields.
+    promptVersion: serviceType === "image_edit" ? "1.3-nb2-edit" : "1.3-nb2",
     userId: params.userId,
   });
 
   try {
-    const client = getOpenAIClient();
+    const ai = getGeminiImageClient();
 
-    // SSRF defense: every server-side fetch of a "reference image URL" goes
-    // through our Supabase Storage allowlist. We accept ONLY public URLs in
-    // buckets we own. Anything else is rejected before we hit the network so
-    // an attacker can't smuggle internal IPs (169.254.169.254, etc.) or
-    // arbitrary external hosts through this code path.
     const candidateRefs = (params.referenceImageUrls ?? []).slice(0, 4);
-    const { allowed: refs, rejected } =
+    const { allowed: allowedUrls, rejected } =
       partitionAllowedReferenceImageUrls(candidateRefs);
     if (rejected.length > 0) {
       console.warn(
@@ -72,77 +110,47 @@ export async function generateImage(
       );
     }
 
-    let response;
-    if (refs.length > 0) {
-      // gpt-image-2 supports passing real photos as references via images.edit;
-      // the model uses them as the visual ground truth for the generation. The
-      // text prompt is layered on top to control the scene, lighting, etc.
-      const referenceFiles = await Promise.all(
-        refs.map(async (url, idx) => {
-          const res = await fetch(url);
-          if (!res.ok) {
-            throw new Error(
-              `Failed to fetch reference image #${idx} (${res.status})`
-            );
-          }
-          const buf = Buffer.from(await res.arrayBuffer());
-          const contentType = res.headers.get("content-type") ?? "image/png";
-          const ext = contentType.includes("jpeg")
-            ? "jpg"
-            : contentType.includes("webp")
-              ? "webp"
-              : "png";
-          return toFile(buf, `reference-${idx}.${ext}`, {
-            type: contentType,
-          });
-        })
-      );
-
-      // gpt-image-2 processes every reference image at high fidelity by
-      // default — it rejects `input_fidelity`, so we don't pass it here.
-      // That's actually what we want for packaging/label text: the model
-      // preserves the reference pixels instead of re-rendering on-image
-      // copy from scratch (the old gibberish-on-label artifact).
-      // quality: "high" still controls render compute for fine details
-      // (small badges, ingredient lists, brand-mark strokes).
-      response = await client.images.edit({
-        model: MODELS.image,
-        image: referenceFiles,
-        prompt: params.prompt,
-        n: 1,
-        size: params.size ?? "1024x1024",
-        quality: "high",
-      });
-    } else {
-      response = await client.images.generate({
-        model: MODELS.image,
-        prompt: params.prompt,
-        n: 1,
-        size: params.size ?? "1024x1024",
-        quality: "high",
+    const refParts: Part[] = [];
+    for (let i = 0; i < allowedUrls.length; i++) {
+      const url = allowedUrls[i];
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch reference image #${i} (${res.status})`);
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const contentType = res.headers.get("content-type") ?? "image/png";
+      refParts.push({
+        inlineData: {
+          mimeType: mimeFromContentType(contentType),
+          data: buf.toString("base64"),
+        },
       });
     }
 
-    const imageData = response.data?.[0];
-    if (!imageData || (!imageData.b64_json && !imageData.url)) {
-      throw new Error("No image data returned from OpenAI");
-    }
+    const size = params.size ?? "1024x1024";
+    const aspectRatio = imageGenSizeToGeminiAspectRatio(size);
 
-    let imageBuffer: Buffer;
-    if (imageData.b64_json) {
-      imageBuffer = Buffer.from(imageData.b64_json, "base64");
-    } else {
-      const fetchRes = await fetch(imageData.url!);
-      const arrayBuffer = await fetchRes.arrayBuffer();
-      imageBuffer = Buffer.from(arrayBuffer);
-    }
+    const contents: Part[] = [
+      ...refParts,
+      {
+        text: params.prompt,
+      },
+    ];
 
-    // Collision-proof storage path. The previous `${threadId}/${Date.now()}.png`
-    // collides under concurrent generations within the same millisecond
-    // (auto-chain + an in-flight edit, two parallel turns on the same thread,
-    // etc.) which causes `upsert: false` uploads to fail. We append a UUID
-    // suffix so every artifact gets a globally unique key regardless of
-    // request timing.
+    const response = await ai.models.generateContent({
+      model: MODELS.image,
+      contents,
+      config: {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig: {
+          aspectRatio,
+          imageSize: "1K",
+        },
+      },
+    });
+
+    const imageBuffer = extractImageFromGeminiResponse(response);
+
     const filename = `${params.threadId}/${Date.now()}-${randomUUID()}.png`;
     const { error: uploadError } = await supabase.storage
       .from("creative-assets")
@@ -164,15 +172,17 @@ export async function generateImage(
         storage_path: filename,
         mime_type: "image/png",
         file_size_bytes: imageBuffer.byteLength,
-        width: parseInt(params.size?.split("x")[0] ?? "1024"),
-        height: parseInt(params.size?.split("x")[1] ?? "1024"),
+        width: parseInt(size.split("x")[0] ?? "1024"),
+        height: parseInt(size.split("x")[1] ?? "1024"),
         metadata: {
           prompt: params.prompt,
           model: MODELS.image,
+          image_provider: "google_genai",
           thread_id: params.threadId,
-          size: params.size ?? "1024x1024",
-          mode: refs.length > 0 ? "edit" : "generate",
-          reference_image_urls: refs,
+          size,
+          aspect_ratio: aspectRatio,
+          mode: refParts.length > 0 ? "edit" : "generate",
+          reference_image_urls: allowedUrls,
         },
         created_by: params.userId,
       })
@@ -194,42 +204,24 @@ export async function generateImage(
     });
 
     if (runId) {
-      // gpt-image-1 returns a `usage` object on the response (input/output
-      // image tokens). When OpenAI exposes it we record the per-call token
-      // counts so the same dashboards we use for text generation work for
-      // image generation. The fields are typed loosely because the SDK
-      // surface for image usage has evolved and we want to be tolerant.
-      const usage = (
-        response as unknown as {
-          usage?: {
-            input_tokens?: number;
-            output_tokens?: number;
-            total_tokens?: number;
-          };
-        }
-      ).usage;
-
+      const um = response.usageMetadata;
       await completeAiRun(supabase, runId, {
-        inputTokens: usage?.input_tokens,
-        outputTokens: usage?.output_tokens,
-        totalTokens: usage?.total_tokens,
+        inputTokens: um?.promptTokenCount,
+        outputTokens: um?.candidatesTokenCount,
+        totalTokens: um?.totalTokenCount,
         responsePayload: {
           asset_id: asset.id,
           storage_path: filename,
-          // Surface the run-shaping inputs so we can slice analytics by
-          // mode (edit vs generate), aspect ratio, and prompt length without
-          // joining back to the messages table.
-          mode: refs.length > 0 ? "edit" : "generate",
-          size: params.size ?? "1024x1024",
-          reference_count: refs.length,
+          provider: "google_genai",
+          model: MODELS.image,
+          mode: refParts.length > 0 ? "edit" : "generate",
+          size,
+          aspect_ratio: aspectRatio,
+          image_size: "1K",
+          reference_count: refParts.length,
           reference_rejected_count:
-            (params.referenceImageUrls?.length ?? 0) - refs.length,
+            (params.referenceImageUrls?.length ?? 0) - allowedUrls.length,
           prompt_chars: params.prompt.length,
-          // gpt-image-2 always processes references at high fidelity, so
-          // we record "high" whenever we went through the edit path (for
-          // parity with historical gpt-image-1 runs) and null otherwise.
-          input_fidelity: refs.length > 0 ? "high" : null,
-          quality: "high",
         },
       });
     }

@@ -1,8 +1,22 @@
 /** Visual preset id for ratio icons (see `AspectRatioGlyph`). */
 export type ImageGenRatioGlyphId = "1:1" | "16:9" | "9:16";
 
-/** OpenAI image API sizes supported in this app (gpt-image-1). */
+/** Pixel presets in the Studio UI; mapped to Gemini `aspectRatio` at call time. */
 export type ImageGenSize = "1024x1024" | "1536x1024" | "1024x1536";
+
+/** Maps UI size presets to Gemini image `aspectRatio` (Nano Banana 2). */
+export function imageGenSizeToGeminiAspectRatio(size: ImageGenSize): string {
+  switch (size) {
+    case "1024x1024":
+      return "1:1";
+    case "1536x1024":
+      return "3:2";
+    case "1024x1536":
+      return "2:3";
+    default:
+      return "3:2";
+  }
+}
 
 export const IMAGE_GEN_RATIO_OPTIONS: ReadonlyArray<{
   size: ImageGenSize;
@@ -30,4 +44,5 @@ export const IMAGE_GEN_RATIO_OPTIONS: ReadonlyArray<{
   },
 ];
 
-export const DEFAULT_IMAGE_GEN_SIZE: ImageGenSize = "1536x1024";
+/** Default aspect preset for new threads / sessions (1:1 square). */
+export const DEFAULT_IMAGE_GEN_SIZE: ImageGenSize = "1024x1024";
