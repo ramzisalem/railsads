@@ -93,7 +93,8 @@ export async function generateImage(
     serviceType,
     model: MODELS.image,
     // Bump when switching image backends or changing observability fields.
-    promptVersion: serviceType === "image_edit" ? "1.3-nb2-edit" : "1.3-nb2",
+    promptVersion:
+      serviceType === "image_edit" ? "1.4-g3-pro-img-edit" : "1.4-g3-pro-img",
     userId: params.userId,
   });
 

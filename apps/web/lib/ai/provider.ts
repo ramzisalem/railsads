@@ -15,7 +15,7 @@ export function getOpenAIClient(): OpenAI {
   return _client;
 }
 
-/** Gemini client for image generation (Nano Banana 2). Uses `GEMINI_API_KEY`. */
+/** Gemini client for image generation. Uses `GEMINI_API_KEY`. */
 export function getGeminiImageClient(): GoogleGenAI {
   if (!_gemini) {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -32,8 +32,8 @@ export function getGeminiImageClient(): GoogleGenAI {
 export const MODELS = {
   premium: "gpt-4.1",
   efficient: "gpt-4.1-mini",
-  /** Nano Banana 2 — Gemini 3.1 Flash Image Preview (Google AI image API). */
-  image: "gemini-3.1-flash-image-preview",
+  /** Gemini 3 Pro Image (preview) — higher-fidelity generation vs Flash Image. */
+  image: "gemini-3-pro-image-preview",
 } as const;
 
 export type ModelTier = keyof typeof MODELS;

@@ -4,7 +4,7 @@ export type ImageGenRatioGlyphId = "1:1" | "16:9" | "9:16";
 /** Pixel presets in the Studio UI; mapped to Gemini `aspectRatio` at call time. */
 export type ImageGenSize = "1024x1024" | "1536x1024" | "1024x1536";
 
-/** Maps UI size presets to Gemini image `aspectRatio` (Nano Banana 2). */
+/** Maps UI size presets to Gemini image `aspectRatio`. */
 export function imageGenSizeToGeminiAspectRatio(size: ImageGenSize): string {
   switch (size) {
     case "1024x1024":
